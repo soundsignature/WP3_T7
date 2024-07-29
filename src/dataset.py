@@ -12,7 +12,8 @@ import pandas as pd
 import os
 from dotenv import load_dotenv
 
-    
+UNWANTED_LABELS = ["Undefined", "Anthropogenic"]
+
 class EcossDataset:
     def __init__(self, annots_path: str, path_store_data: str, pad_mode: str,
                  sr: float, duration: float):
@@ -34,8 +35,7 @@ class EcossDataset:
     
     def drop_unwanted_labels(self, unwanted_labels: list):
         """
-        This function drops the rows that contain an unwanted label.
-        It also drops nan rows (e.g the ones in wavec dataset)
+        This function drops the rows that contain an unwanted label
 
         Parameters
         ----------
@@ -47,19 +47,14 @@ class EcossDataset:
         None.
 
         """
-        df = self.df.dropna(subset=['label_source'])
-        df.reset_index(drop=True, inplace=True)
-        df = df
-        
         idxs_to_drop = []
-        for i, row in df.iterrows():
+        for i, row in self.df.iterrows():
             for label in unwanted_labels:
-                if label in row["label_source"]:
+                if label in row["final_source"]:
                     idxs_to_drop.append(i)
         
-        df = df.drop(idxs_to_drop)
-        df.reset_index(drop=True, inplace=True)
-        self.df = df
+        self.df = self.df.drop(idxs_to_drop)
+        self.df.reset_index(drop=True, inplace=True)
         
     
     def remap_onthology(self, labels: list[str]):
@@ -77,7 +72,9 @@ class EcossDataset:
         None.
 
         """
-        self.drop_unwanted_labels(['Undefined'])
+        # Dropping rows that contain nan in label_source
+        self.df = self.df.dropna(subset=['label_source'])
+        self.df.reset_index(drop=True, inplace=True)
         
         for i, row in self.df.iterrows():
             for label in labels:
@@ -90,8 +87,23 @@ class EcossDataset:
         # Currently not saving, only overwritting the df parameter as this is the first step
         self.df["final_source"] = self.df["label_source"].apply(lambda x: x.split('|')[-1])
         
+        # Now, we can proceed to eliminate the unwanted labels
+        self.drop_unwanted_labels(UNWANTED_LABELS)
+        
                     
     def generate_insights(self):
         pass
+
+    
+if __name__ == "__main__":
+    load_dotenv()
+    ANNOTATIONS_PATH = os.getenv("ANNOTATIONS_PATH")
+    # LABELS = 
+    ecoss_data = EcossDataset(ANNOTATIONS_PATH, '.', '.', '.', '.')
+    ecoss_data.remap_onthology(["Odontocetes", "Ship"])
+    ecoss_data.df.final_source
+    
+    
+    
     
 
