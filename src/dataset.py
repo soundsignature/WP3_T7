@@ -10,13 +10,12 @@ Created on Mon Jul 29 13:27:48 2024
     
 class EcossDataset:
     def __init__(self, annots_path: str, path_store_data: str, pad_mode: str,
-                 sr: float, duration: float, labels: list):
+                 sr: float, duration: float):
         self.annots_path = annots_path
         self.path_store_data = path_store_data
         self.pad_mode = pad_mode
         self.sr = sr
         self.duration = duration
-        self.labels = labels
     
     
     def filter_overlapping(self):
@@ -27,7 +26,7 @@ class EcossDataset:
         pass
     
     
-    def remap_onthology(self):
+    def remap_onthology(self, labels: list):
         pass
     
     
