@@ -2,7 +2,9 @@
 name = "pipeline"
 version = "0.1.0"
 description = ""
-authors = ["Jose Antonio <joseantoniogarcia@ctnaval.com>"]
+authors = ["Jose Antonio Garcia <joseantoniogarcia@ctnaval.com>",
+"Isabel Carozzo <isabel.carozzo@onairweb.com>",
+"Pablo Aguirre <p.aguirre@electronica-submarina.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
