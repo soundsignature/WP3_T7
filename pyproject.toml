@@ -6,6 +6,9 @@ authors = ["Jose Antonio <joseantoniogarcia@ctnaval.com>",
 "Pablo Aguirre <p.aguirre@electronica-submarina.com>",
 "Isabel Carozzo <isabel.carozzo@onairweb.com>"]
 readme = "README.md"
+packages = [
+    { include = "src" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.9"
