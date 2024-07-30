@@ -194,23 +194,9 @@ class EcossDataset:
 
 
 if __name__ == "__main__":
-    # ecoss_data = EcossDataset(...)
-    # signals = ...
-    # sr = ...
-    # paths = ...
-    # labels = ...
-    # signals_processed, labels_processed = ecoss_data.process_all_data(signals_list=signals, original_sr_list=sr, paths_list=paths, labels_list=labels)
-    signals_list = []
-    sr_list = []
-    paths_list = []
-    labels_list = []
-    folder_path = "/home/isabel/test"
-    for x in os.listdir(folder_path):
-        print(x)
-        signal,sr = librosa.load(os.path.join(folder_path, x), sr = None )
-        signals_list.append(signal)
-        sr_list.append(sr)
-        paths_list.append(os.path.join(folder_path, x))
-    labels_list.extend('b'*len(signals_list))
-    prova = EcossDataset(annots_path = "", pad_mode = 'white_noise', sr = 32000, duration=2, saving_on_disk = True)
-    signals, labels = prova.process_all_data(signals_list, sr_list, paths_list, labels_list)
+    ecoss_data = EcossDataset(...)
+    signals = ...
+    sr = ...
+    paths = ...
+    labels = ...
+    signals_processed, labels_processed = ecoss_data.process_all_data(signals_list=signals, original_sr_list=sr, paths_list=paths, labels_list=labels)
