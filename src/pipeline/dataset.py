@@ -55,7 +55,7 @@ class EcossDataset:
                     idxs_to_drop.append(i)
         
         self.df = self.df.drop(idxs_to_drop)
-        self.df.reset_index(drop=True, inplace=True)
+        # self.df.reset_index(drop=True, inplace=True) Comment because its needed for the overlapping
         
     
     def fix_onthology(self, labels: list[str] = None):
