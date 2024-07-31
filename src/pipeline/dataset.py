@@ -563,7 +563,7 @@ if __name__ == "__main__":
     load_dotenv()
     ANNOTATIONS_PATH = os.getenv("ANNOTATIONS_PATH")
     # LABELS = 
-    ecoss_data = EcossDataset(ANNOTATIONS_PATH, '.', '.', '.', '.')
+    ecoss_data = EcossDataset(ANNOTATIONS_PATH, '.', 'zeros', 32000.0, 1,False)
     ecoss_data.fix_onthology(labels=["Biological", "Anthropogenic"])
     ecoss_data.filter_overlapping()
     times = ecoss_data.generate_insights()
