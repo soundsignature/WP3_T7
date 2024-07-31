@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 import numpy as np
 from enum import Enum
 
-UNWANTED_LABELS = ["Undefined", "Anthropogenic"]
+UNWANTED_LABELS = ["Undefined"]
 
 class EcossDataset:
     def __init__(self, annots_path: str, path_store_data: str, pad_mode: str,
@@ -39,7 +39,6 @@ class EcossDataset:
         None
         """
         overlap_info_processed = self._extract_overlapping_info()
-        
         self.df["overlap_info_processed"] = overlap_info_processed
         # self.df.dropna(subset=["final_source"],inplace=True)
         self.df["to_delete"] = False
@@ -54,8 +53,8 @@ class EcossDataset:
                 continue
             segments_to_delete = []
             for overlap_idx,tmin,tmax in self.df.loc[eval_idx]["overlap_info_processed"]:
-                # if overlap_idx not in self.df.index:
-                #     continue
+                if overlap_idx not in self.df.index:
+                    continue
                 if self.df.loc[eval_idx]["final_source"] != self.df.loc[overlap_idx]["final_source"]:
                     # Add to segments_to_delete everytime there is overlapping different class sources
                     segments_to_delete.append([tmin,tmax])
@@ -85,6 +84,7 @@ class EcossDataset:
         # Remove rows marked for deletion
         self.df.drop(self.df[self.df["to_delete"]==True].index,inplace=True)
         self.df.drop(columns=['to_delete'], inplace=True)
+        self.df.reset_index(drop=True, inplace=True)
         if visualize_overlap:
             self._visualize_overlappping(self.df,"_postprocessed") 
  
@@ -136,7 +136,7 @@ class EcossDataset:
         """
         # Dropping rows that contain nan in label_source
         self.df = self.df.dropna(subset=['label_source'])
-        self.df.reset_index(drop=True, inplace=True)
+        # self.df.reset_index(drop=True, inplace=True) Comment because its needed for the overlapping
         
         if labels != None:
             for i, row in self.df.iterrows():
@@ -393,6 +393,7 @@ if __name__ == "__main__":
     # LABELS = 
     ecoss_data = EcossDataset(ANNOTATIONS_PATH, '.', '.', '.', '.')
     ecoss_data.fix_onthology(labels=["Biological", "Anthropogenic"])
+    times = ecoss_data.generate_insights()
     ecoss_data.filter_overlapping()
     times = ecoss_data.generate_insights()
 
