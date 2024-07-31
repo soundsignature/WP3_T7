@@ -10,6 +10,7 @@ Created on Mon Jul 29 13:27:48 2024
 
 import pandas as pd
 import os
+from sklearn.model_selection import StratifiedShuffleSplit
 from matplotlib import pyplot as plt
 from dotenv import load_dotenv
 import numpy as np
@@ -32,7 +33,44 @@ class EcossDataset:
         self.saving_on_disk = saving_on_disk
         self.df = pd.read_csv(self.annots_path, sep=";")
     
-    
+    def split_train_test_balanced(self, test_size=0.2, random_state=None):
+        """
+        Divides the dataframe in train and test at file level, ensuring a balanced class distribution.
+        Adds a 'split' column with values 'test' or 'train' 
+
+        Parameters:
+       
+        test_size (float): Ratio of test dataset.
+        random_state (int): Random seed.
+ 
+        Returns:
+        None (updates pd.DataFrame: original DataFrame with an extra columnn named 'split')
+        """
+        # Creates a DataFrame with unique files and their labels
+        file_labels = self.df.groupby('parent_file')['final_source'].apply(
+            lambda x: x.mode()[0]).reset_index()
+
+        # Initialize column split in the original DataFrame
+        self.df['split'] = ''
+
+        # Handle classes with only one instance
+        single_instance_files = file_labels[file_labels.duplicated('final_source', keep=False) == False]
+        multiple_instance_files = file_labels[file_labels.duplicated('final_source', keep=False) == True]
+
+        # Create StratifiedShuffleSplit for files with multiple instances
+        sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+
+        # Get indexes for train and test
+        for train_idx, test_idx in sss.split(multiple_instance_files['parent_file'], multiple_instance_files['final_source']):
+            train_files = multiple_instance_files['parent_file'].iloc[train_idx]
+            test_files = multiple_instance_files['parent_file'].iloc[test_idx]
+        # Add single instance files to the train set
+        train_files = pd.concat([train_files, single_instance_files['parent_file']])
+
+        # Assign in the original DataFrame 'train' or 'test' in columns 'split'
+        self.df.loc[self.df['parent_file'].isin(train_files), 'split'] = 'train'
+        self.df.loc[self.df['parent_file'].isin(test_files), 'split'] = 'test'
+        
     def filter_overlapping(self, visualize_overlap = False):
         """
         Filters overlapping segments in the dataset and optionally generates a representation of the timeline of labels before and after filtering.
@@ -564,10 +602,10 @@ if __name__ == "__main__":
     ANNOTATIONS_PATH = os.getenv("ANNOTATIONS_PATH")
     # LABELS = 
     ecoss_data = EcossDataset(ANNOTATIONS_PATH, '.', 'zeros', 32000.0, 1,False)
-    ecoss_data.fix_onthology(labels=["Biological", "Anthropogenic"])
-    ecoss_data.filter_overlapping()
+    ecoss_data.fix_onthology(labels=[])
+    # ecoss_data.filter_overlapping()
     times = ecoss_data.generate_insights()
-    signals, sr, paths, labels = ...
-    signals_processed, labels_processed = ecoss_data.process_all_data(signals_list=signals, original_sr_list=sr, paths_list=paths, labels_list=labels)
-    
+    ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
+    # signals, sr, paths, labels = ...
+    # signals_processed, labels_processed = ecoss_data.process_all_data(signals_list=signals, original_sr_list=sr, paths_list=paths, labels_list=labels)
     
