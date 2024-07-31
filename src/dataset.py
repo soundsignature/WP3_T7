@@ -15,15 +15,16 @@ import pickle
 import os
 
 class EcossDataset:
-    def __init__(self, annots_path: str, pad_mode: str,
+    def __init__(self, annots_path: str, path_store_data: str, pad_mode: str,
                  sr: float, duration: float, saving_on_disk: bool):
         self.annots_path = annots_path
+        self.path_store_data = path_store_data
         self.pad_mode = pad_mode
         self.sr = sr
         self.duration = duration
         self.segment_length = int(self.duration * self.sr)
         self.saving_on_disk = saving_on_disk
-        # self.df = pd.read_csv(self.annots_path, sep=";")
+        self.df = pd.read_csv(self.annots_path, sep=";")
         self.cache_path = os.path.join(os.getcwd(), "cache")
         
         
@@ -165,11 +166,12 @@ class EcossDataset:
         # TODO we should decide is std needs to be a parameter to set or not 
         # Generate white noise with standard deviation scaled to the signal
         std = np.std(signal)/10
-        white_noise = np.random.normal( loc = 0, scale = std, size=self.segment_length)
-        # Pad the signal with zeros and add white noise
-        segment = np.pad(signal, (delta_start, delta_end), 'constant', constant_values=(0, 0))
-        segment = segment + white_noise
-        
+        white_noise_start = np.random.normal(loc=0, scale=std, size=delta_start)
+        white_noise_end = np.random.normal(loc=0, scale=std, size=delta_end)
+
+        # Concatenate white noise segments with the original signal
+        segment = np.concatenate((white_noise_start, signal, white_noise_end))
+
         return segment
     
     
@@ -194,9 +196,11 @@ class EcossDataset:
 
 
 if __name__ == "__main__":
+    
     ecoss_data = EcossDataset(...)
     signals = ...
     sr = ...
     paths = ...
     labels = ...
     signals_processed, labels_processed = ecoss_data.process_all_data(signals_list=signals, original_sr_list=sr, paths_list=paths, labels_list=labels)
+    

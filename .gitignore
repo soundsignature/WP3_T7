@@ -1,3 +1,6 @@
+.env
+venv/
+data/
 *.pickle
 *.ipynb
 test/
