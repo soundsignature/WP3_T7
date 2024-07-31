@@ -7,4 +7,4 @@ Created on Tue Jul 30 12:41:45 2024
 
 # For poetry to recognize the project as a package
 
-from src.dataset import EcossDataset
+from pipeline.dataset import EcossDataset
