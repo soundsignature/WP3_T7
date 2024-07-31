@@ -39,7 +39,7 @@ class EcossDataset:
         Adds a 'split' column with values 'test' or 'train' 
 
         Parameters:
-        df (pd.DataFrame): DataFrame with additional columns 'parent_file' and 'final_source'.
+       
         test_size (float): Ratio of test dataset.
         random_state (int): Random seed.
  
