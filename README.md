@@ -2,12 +2,21 @@
  Training and testing 
 
 
-## POETRY CONFIGURATION:
-1. Go to the root of the project and create a venv named "poetryenv".
-2. Activate the venv
-3. pip install poetry
-4. Go to the root of the project
-5. poetry install (this will install all the packages and dependencies listed in poetry.lock and pyproject.toml files)
+## POETRY FIRST TIME:
+1. Install poetry on your base python virtual environment with "pip install poetry".
+2. Write "poetry init" in order to create the project.
+3. In the pyproject.toml file change the name parameter in [tool.poetry] for the name "pipeline".
+4. Write "poetry config virtualenvs.in-project true". This will tell poetry to locate the .venv file that will be created in the root of the project.
+5. Write "poetry install". This will create the .venv file and install all the packages and dependecies needed for your project.
+6. In case you want to add more, simply write "poetry add package-name".
 
-If you would like to install a new package inside the environment and its dependencies, you simply need to activate the environment manually and do "poetry add package-name" inside the root of the project.
+## POETRY AFTER FIRST CONFIGURATION:
+1. Install poetry on your base python virtual environment with "pip install poetry".
+2. Write "poetry config virtualenvs.in-project true". This will tell poetry to locate the .venv file that will be created in the root of the project.
+3. Write "poetry install". This will create the .venv file and install all the packages and dependecies needed for your project.
+4. In case you want to add dependecies and package, write "poetry add package-name".
 
+## HOW TO RUN YOUR CODE WITH YOUR POETRY VENV?
+Two ways:
+1. Write "poetry shell". This will activate the venv and you will be able to navigate to your script and do "python X.py". In order to exit this shell write "exit".
+2. Activate the venv manually.
