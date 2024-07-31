@@ -10,6 +10,7 @@ Created on Mon Jul 29 13:27:48 2024
 
 import pandas as pd
 import os
+from sklearn.model_selection import StratifiedShuffleSplit
 from matplotlib import pyplot as plt
 from dotenv import load_dotenv
 import numpy as np
@@ -27,7 +28,39 @@ class EcossDataset:
         self.duration = duration
         self.df = pd.read_csv(self.annots_path, sep=";")
     
-    
+    def split_train_test_balanced(self, test_size=0.2, random_state=None):
+        """
+        Divides the dataframe in train and test at file level, ensuring a balanced class distribution.
+        Adds a 'split' column with values 'test' or 'train' 
+
+        Parameters:
+        df (pd.DataFrame): DataFrame with additional columns 'parent_file' and 'final_source'.
+        test_size (float): Ratio of test dataset.
+        random_state (int): Random seed.
+ 
+        Returns:
+        None (updates pd.DataFrame: original DataFrame with an extra columnn named 'split')
+        """
+        # Creates a DataFrame with unique files and their labels
+        file_labels = self.df.groupby('parent_file')['final_source'].apply(
+            lambda x: x.mode()[0]).reset_index()
+
+        # Creates a StratifiedShuffleSplit to divide the dataset according to split_ratio
+        sss = StratifiedShuffleSplit(
+            n_splits=1, test_size=test_size, random_state=random_state)
+        # Initialize column split in the original DataFrame
+        self.df['split'] = ''
+
+        # Get indexes for train and test
+        for train_idx, test_idx in sss.split(file_labels['parent_file'], file_labels['final_source']):
+            train_files = file_labels['parent_file'].iloc[train_idx]
+            test_files = file_labels['parent_file'].iloc[test_idx]
+
+        # Assign in the original DataFrame 'train' or 'test' in columns 'split'
+        self.df.loc[self.df['parent_file'].isin(
+            train_files), 'split'] = 'train'
+        self.df.loc[self.df['parent_file'].isin(test_files), 'split'] = 'test'
+
     def filter_overlapping(self, visualize_overlap = False):
         """
         Filters overlapping segments in the dataset and optionally generates a representation of the timeline of labels before and after filtering.
@@ -396,5 +429,6 @@ if __name__ == "__main__":
     times = ecoss_data.generate_insights()
     ecoss_data.filter_overlapping()
     times = ecoss_data.generate_insights()
+    ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
 
     
