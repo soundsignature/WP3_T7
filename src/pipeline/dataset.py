@@ -639,18 +639,15 @@ if __name__ == "__main__":
     ANNOTATIONS_PATH = os.getenv("ANNOTATIONS_PATH")
     ANNOTATIONS_PATH2 = os.getenv("ANNOTATIONS_PATH2")
     ANNOTATIONS_PATH3 = os.getenv("ANNOTATIONS_PATH3")
-    # LABELS = 
-    ecoss_data1 = EcossDataset(ANNOTATIONS_PATH, '.', 'zeros', 32000.0, 1,False)
-    ecoss_data1.fix_onthology(labels=[])
-    ecoss_data1.filter_overlapping()
-    ecoss_data2 = EcossDataset(ANNOTATIONS_PATH2, '.', 'zeros', 32000.0, 1,False)
-    ecoss_data2.fix_onthology(labels=[])
-    ecoss_data2.filter_overlapping()
-    ecoss_data3 = EcossDataset(ANNOTATIONS_PATH3, '.', 'zeros', 32000.0, 1,False)
-    ecoss_data3.fix_onthology(labels=[])
-    ecoss_data3.filter_overlapping()
-    ecoss_list = [ecoss_data1, ecoss_data2, ecoss_data3]
-    times = ecoss_data1.generate_insights()
+    # LABELS =
+    ecoss_list = []
+    for ANNOT_PATH in [ANNOTATIONS_PATH, ANNOTATIONS_PATH2, ANNOTATIONS_PATH3]:
+        ecoss_data1 = EcossDataset(ANNOT_PATH, '.', 'zeros', 32000.0, 1,False)
+        ecoss_data1.fix_onthology(labels=[])
+        ecoss_data1.filter_overlapping()
+        times = ecoss_data1.generate_insights()
+        ecoss_list.append(ecoss_data1)
+
     ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
     times = ecoss_data.generate_insights()
     # ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
