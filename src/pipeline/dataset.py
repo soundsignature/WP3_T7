@@ -19,6 +19,7 @@ import librosa
 import pickle
 import os
 import wave
+from mutagen.flac import FLAC
 
 UNWANTED_LABELS = ["Undefined"]
 
@@ -93,19 +94,32 @@ class EcossDataset:
 
 
     def filter_lower_sr(self):
+        """
+        Filters the rows of the df attribute which contains a sampling rate lower than the desired 
+
+        Parameters:
+       
+        None
+ 
+        Returns:
+        None (updates pd.DataFrame: original DataFrame by filtering the signals with a lower sampling rate)
+        """
         indexes_delete = []
         for i, row in self.df.iterrows():
-            try:
+            if row["file"].endswith('.wav'):
                 with wave.open(row["file"], 'rb') as wav_file:
                     sr = wav_file.getframerate()
                     if sr < self.sr:
                         indexes_delete.append(i)
-            except Exception as e:
-                print(f"The following exception occured: {e}")
+            elif row["file"].endswith('.flac'):
+                audio = FLAC(row["file"])
+                sr = audio.info.sample_rate
+                if sr < self.sr:
+                    indexes_delete.append(i)
+            else:
+                raise ValueError("Unsupported file format. Only WAV and FLAC are supported.")
         
-
-
-    
+        self.df.drop(indexes_delete, inplace=True)
 
     def split_train_test_balanced(self, test_size=0.2, random_state=None):
         """
