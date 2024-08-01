@@ -22,6 +22,7 @@ import soundfile as sf
 from pathlib import Path
 import wave
 from mutagen.flac import FLAC
+from tqdm import tqdm
 
 UNWANTED_LABELS = ["Undefined"]
 
@@ -303,8 +304,9 @@ class EcossDataset:
         processed_labels = []
         processed_splits = []
         files_dict = {}
+        # TODO: Add to logging where are files being saved and info of the process 
         # Iterate over all signals,sr,paths,labels
-        for i,row in self.df.iterrows():
+        for i,row in tqdm(self.df.iterrows(), total=self.df.shape[0],desc='Processing Audios'):
             # [signal, original_sr, path, label]
             # Load audio file
             signal, original_sr = sf.read(row["file"])
