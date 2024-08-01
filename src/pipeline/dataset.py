@@ -427,6 +427,8 @@ class EcossDataset:
         plt.ylabel("# of sound signatures")
         plt.show()
         
+        print(f"Number of sound signatures per source: {count_signatures}\n")
+
         # Plot for time per class of sound signature
         times = dict()
         for i, row in self.df.iterrows():
@@ -442,7 +444,83 @@ class EcossDataset:
         plt.xlabel("Source")
         plt.ylabel("Time (s)")
         plt.show()
-        
+
+        print(f"Number of seconds per source: {times}\n")
+
+        # Plotting per split (train and test)
+        if 'split' in self.df.columns:
+            df_train = self.df[self.df["split"] == "train"]
+            df_test = self.df[self.df["split"] == "test"]
+            
+            # Number of sound signatures related
+            fig, ax = plt.subplots(ncols=2, figsize=(12,6))
+            count_signatures_train = df_train["final_source"].value_counts()
+            count_signatures_test = df_test["final_source"].value_counts()
+            ax[0].bar(range(0, len(count_signatures_train)), count_signatures_train)
+            ax[1].bar(range(0, len(count_signatures_test)), count_signatures_test)
+
+            ax[0].set_xticks(range(0, len(count_signatures_train)),
+                               count_signatures_train.index.to_list(),
+                               horizontalalignment='center',
+                               rotation=45)
+            ax[1].set_xticks(range(0, len(count_signatures_test)),
+                               count_signatures_test.index.to_list(),
+                               horizontalalignment='center',
+                               rotation=45)
+
+            ax[0].set_xlabel("Source")
+            ax[0].set_ylabel("# of sound signatures")
+            
+            ax[0].set_title("Train data")
+            ax[1].set_title("Test data")
+            
+            print(f"Number of sound signatures per source for train set: {count_signatures_train}\n")
+            print(f"Number of sound signatures per source for test set: {count_signatures_test}\n")
+            
+            plt.tight_layout()
+            plt.show()
+            
+            # Time related
+            times_train = dict()
+            times_test = dict()
+
+            for i, row in df_train.iterrows():
+                if row["final_source"] not in times_train.keys():
+                    times_train[row["final_source"]] = row["tmax"] - row["tmin"]
+                else:
+                    times_train[row["final_source"]] += row["tmax"] - row["tmin"]
+            for i, row in df_test.iterrows():
+                if row["final_source"] not in times_test.keys():
+                    times_test[row["final_source"]] = row["tmax"] - row["tmin"]
+                else:
+                    times_test[row["final_source"]] += row["tmax"] - row["tmin"]
+
+            fig, ax = plt.subplots(ncols=2, figsize=(12,6))
+            ax[0].bar(range(0, len(times_train)), times_train.values())
+            ax[1].bar(range(0, len(times_test)), times_test.values())
+            
+            ax[0].set_xticks(range(0, len(times_train)),
+                               list(times_train.keys()),
+                               horizontalalignment='center',
+                               rotation=45)
+            ax[1].set_xticks(range(0, len(times_test)),
+                               list(times_test.keys()),
+                               horizontalalignment='center',
+                               rotation=45)
+
+            ax[0].set_xlabel("Source")
+            ax[0].set_ylabel("Time (s)")
+            
+            ax[0].set_title("Train data")
+            ax[1].set_title("Test data")
+
+            print(f"Number of seconds per source for train set: {times_train}\n")
+            print(f"Number of seconds per source for test set: {times_test}\n")
+
+            plt.tight_layout()
+            plt.show()
+            
+
     def _extract_overlapping_info(self):
         """
         Extracts and processes overlapping information from the DataFrame.
@@ -647,10 +725,9 @@ if __name__ == "__main__":
         ecoss_data1.filter_overlapping()
         times = ecoss_data1.generate_insights()
         ecoss_list.append(ecoss_data1)
-
     ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
     times = ecoss_data.generate_insights()
-    # ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
+    ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
     # signals, sr, paths, labels = ...
     # signals_processed, labels_processed = ecoss_data.process_all_data(signals_list=signals, original_sr_list=sr, paths_list=paths, labels_list=labels)
     
