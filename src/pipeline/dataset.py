@@ -18,6 +18,8 @@ from enum import Enum
 import librosa
 import pickle
 import os
+import soundfile as sf
+from pathlib import Path
 import wave
 from mutagen.flac import FLAC
 
@@ -287,39 +289,57 @@ class EcossDataset:
         # Now, we can proceed to eliminate the unwanted labels
         self.drop_unwanted_labels(UNWANTED_LABELS)
     
-    def process_all_data(self, signals_list, original_sr_list, paths_list, labels_list):
+    def process_all_data(self):
         """
-        Process the signals and return processed signals and labels, according to the sample rate, duration and pad_mode chosen.
-
-        Parameters:
-        signals_list (list): List of signal arrays.
-        original_sr_list (list): List of original sampling rates.
-        paths_list (list): List of paths corresponding to each signal.
-        labels_list (list): List of labels corresponding to each signal.
+        Process the signals and return processed signals, labels, and splits according to the sample rate, duration, and pad_mode chosen.
 
         Returns:
-        tuple: list of processed signals and  list of the corresponding labels.
+        tuple: A tuple containing three lists:
+            - processed_signals (list): List of processed signal segments.
+            - processed_labels (list): List of labels corresponding to each processed segment.
+            - processed_splits (list): List of split information ('train' or 'test') for each processed segment.
         """
         processed_signals = []
         processed_labels = []
+        processed_splits = []
+        files_dict = {}
         # Iterate over all signals,sr,paths,labels
-        for signal, original_sr, path, label in zip(signals_list, original_sr_list, paths_list, labels_list):
+        for i,row in self.df.iterrows():
+            # [signal, original_sr, path, label]
+            # Load audio file
+            signal, original_sr = sf.read(row["file"])
+            if "final_source" in row.index:
+                label = row["final_source"]
+            else:
+                label = row["label_source"]
+            split = row["split"]
+            # Extract only the label segment
+            signal = signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
             # Process the signal
             segments = self.process_data(signal, original_sr)
+            # Count how many times 
+            if row["file"] in files_dict:
+                files_dict[row["file"]] += 1
+            else:
+                files_dict[row["file"]] = 0
+            
+            path = Path(row["split"]) / label / f"{Path(row['file']).stem}_{files_dict[row["file"]]:03d}"
             if self.saving_on_disk:
                 try:
                     # Save the processed segments to disk
-                    self.save_data(segments, path)
-                except:
-                    print('Error : data could not be saved')
-                    
+                    if self.saving_on_disk:
+                        self.save_data(segments, path)
+                except Exception as e:
+                    print('Error : data could not be saved: '+ str(e))
             # Extend the lists of processed signals and labels 
             processed_signals.extend(segments)
-            processed_labels.extend(label * len(segments))
+            processed_labels.extend([label] * len(segments))
+            processed_splits.extend([split] * len(segments))
+            
         
         # Ensure the lengths of signals and labels match  
-        assert len(processed_signals)==len(processed_labels),'Error : signals and labels processed have different length'
-        return processed_signals, processed_labels
+        assert len(processed_signals)==len(processed_labels),f'Error : signals and labels processed have different length. Signal: {len(processed_signals)}, labels: {len(processed_labels)}'
+        return processed_signals, processed_labels, processed_splits
                         
             
     def process_data(self, signal, original_sr):
@@ -362,7 +382,7 @@ class EcossDataset:
         n_segments = len(signal)//(self.segment_length)
         # Extract each segment and append to the list
         for i in range(n_segments):
-            segment = signal[(i*self.segment_length):(i+1*self.segment_length)]
+            segment = signal[(i*self.segment_length):((i+1)*self.segment_length)]
             segments.append(segment)
         return segments
             
@@ -436,24 +456,40 @@ class EcossDataset:
     
     def save_data(self, segments, path):
         """
-        Save the processed segments to disk  in the folder "././cache" as pickle files.
+        Save the processed segments to disk in the specified format (pickle or wav).
 
         Parameters:
-        segments (list): List of processed segments.
-        path (str): Path to save the segments.
+        segments (list): List of processed segments to be saved.
+        path (str): Path to the directory where the segments will be saved.
+
+        Raises:
+        ValueError: If the saving format specified in self.saving_on_disk is not 'pickle' or 'wav'.
+
+        Notes:
+        - If the saving format is 'pickle', each segment will be saved as a separate pickle file.
+        - If the saving format is 'wav', each segment will be saved as a separate wave file.
+        - The files will be saved in the directory specified by self.path_store_data combined with the provided path.
+        - The directory will be created if it does not exist.
         """
         # Create the cache directory if it does not exist
-        os.makedirs(self.path_store_data, exist_ok=True)
-        # Extract the base filename from the path
-        filename = path.split('.')[0].replace('/', '_')[1:]
+        save_path = Path(self.path_store_data) / path
+        save_path.parent.mkdir(parents = True, exist_ok = True)
+        filename = save_path 
+        if self.saving_on_disk == "pickle":
+            # Save each segment as a separate pickle file
+            for idx, segment in enumerate(segments):
+                saving_filename = str(filename) + '-' + str(idx) + '.pickle'
+                with open(saving_filename, 'wb') as f:
+                    pickle.dump(segment, f, protocol=pickle.HIGHEST_PROTOCOL)
+        elif self.saving_on_disk == "wav":
+            # Save each segment as a separate wave file
+            for idx, segment in enumerate(segments):
+                saving_filename = str(filename) + '-' + str(idx) + '.wav'
+                sf.write(saving_filename, segment, int(self.sr))
+        else:
+            raise ValueError(f"saving_on_disk should be pickle or wav, not {self.saving_on_disk}")
         
-        # Save each segment as a separate pickle file
-        for idx, segment in enumerate(segments):
-            saving_filename = filename + '-' + str(idx) + '.pickle'
-            with open(os.path.join(self.path_store_data, saving_filename), 'wb') as f:
-                pickle.dump(segment, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-        
+    # TODO: When the splitting is performed, go for metrics per split
     def generate_insights(self):
         """
         This function is used to generate insights on the data. It generates plots
