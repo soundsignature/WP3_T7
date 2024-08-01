@@ -672,9 +672,6 @@ if __name__ == "__main__":
     # ecoss_data.filter_overlapping()
     # times = ecoss_data.generate_insights()
     ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
-
-    print(ecoss_data.df.columns)
-
     ecoss_data.generate_insights()
     # signals, sr, paths, labels = ...
     # signals_processed, labels_processed = ecoss_data.process_all_data(signals_list=signals, original_sr_list=sr, paths_list=paths, labels_list=labels)
