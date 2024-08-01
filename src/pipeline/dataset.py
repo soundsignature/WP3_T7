@@ -33,6 +33,43 @@ class EcossDataset:
         self.saving_on_disk = saving_on_disk
         self.df = pd.read_csv(self.annots_path, sep=";")
     
+    @staticmethod
+    def concatenate_ecossdataset(dataset_list):
+        """
+        Checks the EcossDataset object provided in a list have the same variables and then generates a new object with
+        a concatenated dataframe. annots_path and path_store_data taken from the first EcossDataset in the list.
+
+        Inputs
+        -------
+        dataset_list : List with EcossDataset to be concatenated
+
+        Outputs
+        -------
+        EcossDataset with concatenated DataFrame
+        """
+
+        #Extract values to compare
+        annot_path0 = dataset_list[0].annots_path
+        sr0 = dataset_list[0].sr
+        duration0 = dataset_list[0].duration
+        padding0 = dataset_list[0].pad_mode
+        save0 = dataset_list[0].saving_on_disk
+        path_store0 = dataset_list[0].path_store_data
+        #Start populatinf DataFrame list
+        df_list = [dataset_list[0].df]
+        #Iterate over list to check appropiate values, exiting function it variables do not match
+        for dataset in dataset_list[1:]:
+            if dataset.sr != sr0 or dataset.duration != duration0 or dataset.pad_mode != padding0 or dataset.saving_on_disk != save0:
+                print("The datasets selected do not have the same characteristics")
+                return
+            else:
+                df_list.append(dataset.df)
+        #Create EcossDataset object with concatenated info
+        ConcatenatedEcoss = EcossDataset(annots_path=annot_path0, path_store_data=path_store0,
+                                         pad_mode=padding0, sr=sr0, duration=duration0, saving_on_disk=save0)
+        ConcatenatedEcoss.df = pd.concat(df_list,ignore_index=True)
+        return ConcatenatedEcoss
+
     def split_train_test_balanced(self, test_size=0.2, random_state=None):
         """
         Divides the dataframe in train and test at file level, ensuring a balanced class distribution.
@@ -678,13 +715,19 @@ class SuperpositionType(Enum):
 if __name__ == "__main__":
     load_dotenv()
     ANNOTATIONS_PATH = os.getenv("ANNOTATIONS_PATH")
-    # LABELS = 
-    ecoss_data = EcossDataset(ANNOTATIONS_PATH, '.', 'zeros', 32000.0, 1,False)
-    ecoss_data.fix_onthology(labels=[])
-    # ecoss_data.filter_overlapping()
-    # times = ecoss_data.generate_insights()
+    ANNOTATIONS_PATH2 = os.getenv("ANNOTATIONS_PATH2")
+    ANNOTATIONS_PATH3 = os.getenv("ANNOTATIONS_PATH3")
+    # LABELS =
+    ecoss_list = []
+    for ANNOT_PATH in [ANNOTATIONS_PATH, ANNOTATIONS_PATH2, ANNOTATIONS_PATH3]:
+        ecoss_data1 = EcossDataset(ANNOT_PATH, '.', 'zeros', 32000.0, 1,False)
+        ecoss_data1.fix_onthology(labels=[])
+        ecoss_data1.filter_overlapping()
+        times = ecoss_data1.generate_insights()
+        ecoss_list.append(ecoss_data1)
+    ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
+    times = ecoss_data.generate_insights()
     ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
-    ecoss_data.generate_insights()
     # signals, sr, paths, labels = ...
     # signals_processed, labels_processed = ecoss_data.process_all_data(signals_list=signals, original_sr_list=sr, paths_list=paths, labels_list=labels)
     
