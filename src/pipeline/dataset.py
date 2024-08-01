@@ -111,11 +111,13 @@ class EcossDataset:
                     sr = wav_file.getframerate()
                     if sr < self.sr:
                         indexes_delete.append(i)
+                        print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
             elif row["file"].endswith('.flac'):
                 audio = FLAC(row["file"])
                 sr = audio.info.sample_rate
                 if sr < self.sr:
                     indexes_delete.append(i)
+                    print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
             else:
                 raise ValueError("Unsupported file format. Only WAV and FLAC are supported.")
         
@@ -763,20 +765,27 @@ class SuperpositionType(Enum):
 
 if __name__ == "__main__":
     load_dotenv()
-    ANNOTATIONS_PATH = os.getenv("ANNOTATIONS_PATH")
-    ANNOTATIONS_PATH2 = os.getenv("ANNOTATIONS_PATH2")
-    ANNOTATIONS_PATH3 = os.getenv("ANNOTATIONS_PATH3")
+    ANNOTATIONS_PATH = os.getenv("DATASET_PATH")
+    ANNOTATIONS_PATH2 = os.getenv("DATASET_PATH2")
+    ANNOTATIONS_PATH3 = os.getenv("DATASET_PATH3")
     # LABELS =
     ecoss_list = []
     for ANNOT_PATH in [ANNOTATIONS_PATH, ANNOTATIONS_PATH2, ANNOTATIONS_PATH3]:
         ecoss_data1 = EcossDataset(ANNOT_PATH, '.', 'zeros', 32000.0, 1,False)
+        ecoss_data1.add_file_column()
         ecoss_data1.fix_onthology(labels=[])
         ecoss_data1.filter_overlapping()
-        times = ecoss_data1.generate_insights()
+        ecoss_data1.generate_insights()
         ecoss_list.append(ecoss_data1)
     ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
     times = ecoss_data.generate_insights()
     ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
+
+    length_prior_filter = len(ecoss_data.df)
+    ecoss_data.filter_lower_sr()
+    assert length_prior_filter != len(ecoss_data.df), "The number of rows is the same"
+
+
     # signals, sr, paths, labels = ...
     # signals_processed, labels_processed = ecoss_data.process_all_data(signals_list=signals, original_sr_list=sr, paths_list=paths, labels_list=labels)
     
