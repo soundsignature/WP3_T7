@@ -67,7 +67,7 @@ class EcossDataset:
         #Create EcossDataset object with concatenated info
         ConcatenatedEcoss = EcossDataset(annots_path=annot_path0, path_store_data=path_store0,
                                          pad_mode=padding0, sr=sr0, duration=duration0, saving_on_disk=save0)
-        ConcatenatedEcoss.df = pd.concat(df_list)
+        ConcatenatedEcoss.df = pd.concat(df_list,ignore_index=True)
         return ConcatenatedEcoss
 
     def split_train_test_balanced(self, test_size=0.2, random_state=None):
