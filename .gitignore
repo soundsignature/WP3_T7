@@ -4,3 +4,4 @@ poetryvenv/
 .venv/
 data/
 *.pickle
+raw_data/
