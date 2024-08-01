@@ -478,13 +478,13 @@ class EcossDataset:
         if self.saving_on_disk == "pickle":
             # Save each segment as a separate pickle file
             for idx, segment in enumerate(segments):
-                saving_filename = str(filename) + '-' + str(idx) + '.pickle'
+                saving_filename = str(filename) + '-' + f"{idx:03d}" + '.pickle'
                 with open(saving_filename, 'wb') as f:
                     pickle.dump(segment, f, protocol=pickle.HIGHEST_PROTOCOL)
         elif self.saving_on_disk == "wav":
             # Save each segment as a separate wave file
             for idx, segment in enumerate(segments):
-                saving_filename = str(filename) + '-' + str(idx) + '.wav'
+                saving_filename = str(filename) + '-' + f"{idx:03d}" + '.wav'
                 sf.write(saving_filename, segment, int(self.sr))
         else:
             raise ValueError(f"saving_on_disk should be pickle or wav, not {self.saving_on_disk}")
