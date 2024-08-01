@@ -18,26 +18,30 @@ from enum import Enum
 import librosa
 import pickle
 import os
+import wave
+from mutagen.flac import FLAC
 
 UNWANTED_LABELS = ["Undefined"]
 
 class EcossDataset:
-    def __init__(self, annots_path: str, path_store_data: str, pad_mode: str,
+    def __init__(self, path_dataset: str, path_store_data: str, pad_mode: str,
                  sr: float, duration: float, saving_on_disk: bool):
-        self.annots_path = annots_path
+        self.path_dataset = path_dataset
         self.path_store_data = path_store_data
         self.pad_mode = pad_mode
         self.sr = sr
         self.duration = duration
         self.segment_length = int(self.duration * self.sr)
         self.saving_on_disk = saving_on_disk
-        self.df = pd.read_csv(self.annots_path, sep=";")
+        self.path_annots = os.path.join(self.path_dataset, 'samples for training', 'annotations.csv')
+        self.dataset_name = os.path.basename(os.path.normpath(self.path_dataset))
+        self.df = pd.read_csv(self.path_annots, sep=";")
     
     @staticmethod
     def concatenate_ecossdataset(dataset_list):
         """
         Checks the EcossDataset object provided in a list have the same variables and then generates a new object with
-        a concatenated dataframe. annots_path and path_store_data taken from the first EcossDataset in the list.
+        a concatenated dataframe. path_dataset and path_store_data taken from the first EcossDataset in the list.
 
         Inputs
         -------
@@ -49,7 +53,7 @@ class EcossDataset:
         """
 
         #Extract values to compare
-        annot_path0 = dataset_list[0].annots_path
+        path_dataset0 = dataset_list[0].path_dataset
         sr0 = dataset_list[0].sr
         duration0 = dataset_list[0].duration
         padding0 = dataset_list[0].pad_mode
@@ -65,10 +69,60 @@ class EcossDataset:
             else:
                 df_list.append(dataset.df)
         #Create EcossDataset object with concatenated info
-        ConcatenatedEcoss = EcossDataset(annots_path=annot_path0, path_store_data=path_store0,
+        ConcatenatedEcoss = EcossDataset(path_dataset=path_dataset0, path_store_data=path_store0,
                                          pad_mode=padding0, sr=sr0, duration=duration0, saving_on_disk=save0)
         ConcatenatedEcoss.df = pd.concat(df_list,ignore_index=True)
         return ConcatenatedEcoss
+
+
+    def add_file_column(self):
+        """
+        Adds the file column in order to keep track of each file of the dataset
+
+        Parameters:
+       
+        Nonce
+ 
+        Returns:
+        None (updates df atribute with an extra columnn named 'file')
+        """
+        self.df["file"] = ''
+        for i, row in self.df.iterrows():
+            self.df.at[i, "file"] = os.path.join(self.path_dataset,
+                                                 'samples for training',
+                                                 self.df.at[i, 'reference'])
+
+
+    def filter_lower_sr(self):
+        """
+        Filters the rows of the df attribute which contains a sampling rate lower than the desired 
+
+        Parameters:
+       
+        None
+ 
+        Returns:
+        None (updates pd.DataFrame: original DataFrame by filtering the signals with a lower sampling rate)
+        """
+        indexes_delete = []
+        for i, row in self.df.iterrows():
+            if row["file"].endswith('.wav'):
+                with wave.open(row["file"], 'rb') as wav_file:
+                    sr = wav_file.getframerate()
+                    if sr < self.sr:
+                        indexes_delete.append(i)
+                        print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
+            elif row["file"].endswith('.flac'):
+                audio = FLAC(row["file"])
+                sr = audio.info.sample_rate
+                if sr < self.sr:
+                    indexes_delete.append(i)
+                    print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
+            else:
+                raise ValueError("Unsupported file format. Only WAV and FLAC are supported.")
+        
+        self.df.drop(indexes_delete, inplace=True)
+        self.df.reset_index(drop=True, inplace=True)
 
     def split_train_test_balanced(self, test_size=0.2, random_state=None):
         """
@@ -400,8 +454,6 @@ class EcossDataset:
                 pickle.dump(segment, f, protocol=pickle.HIGHEST_PROTOCOL)
 
         
-        
-    # TODO: When the splitting is performed, go for metrics per split
     def generate_insights(self):
         """
         This function is used to generate insights on the data. It generates plots
@@ -714,20 +766,27 @@ class SuperpositionType(Enum):
 
 if __name__ == "__main__":
     load_dotenv()
-    ANNOTATIONS_PATH = os.getenv("ANNOTATIONS_PATH")
-    ANNOTATIONS_PATH2 = os.getenv("ANNOTATIONS_PATH2")
-    ANNOTATIONS_PATH3 = os.getenv("ANNOTATIONS_PATH3")
+    ANNOTATIONS_PATH = os.getenv("DATASET_PATH")
+    ANNOTATIONS_PATH2 = os.getenv("DATASET_PATH2")
+    ANNOTATIONS_PATH3 = os.getenv("DATASET_PATH3")
     # LABELS =
     ecoss_list = []
     for ANNOT_PATH in [ANNOTATIONS_PATH, ANNOTATIONS_PATH2, ANNOTATIONS_PATH3]:
         ecoss_data1 = EcossDataset(ANNOT_PATH, '.', 'zeros', 32000.0, 1,False)
+        ecoss_data1.add_file_column()
         ecoss_data1.fix_onthology(labels=[])
         ecoss_data1.filter_overlapping()
-        times = ecoss_data1.generate_insights()
+        ecoss_data1.generate_insights()
         ecoss_list.append(ecoss_data1)
     ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
     times = ecoss_data.generate_insights()
     ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
+
+    length_prior_filter = len(ecoss_data.df)
+    ecoss_data.filter_lower_sr()
+    assert length_prior_filter != len(ecoss_data.df), "The number of rows is the same"
+
+
     # signals, sr, paths, labels = ...
     # signals_processed, labels_processed = ecoss_data.process_all_data(signals_list=signals, original_sr_list=sr, paths_list=paths, labels_list=labels)
     
