@@ -323,7 +323,7 @@ class EcossDataset:
             else:
                 files_dict[row["file"]] = 0
             
-            path = Path(row["split"]) / label / f"{Path(row['file']).stem}_{files_dict[row["file"]]:03d}"
+            path = Path(row["split"]) / label / f"{Path(row['file']).stem}_{files_dict[row['file']]:03d}"
             if self.saving_on_disk:
                 try:
                     # Save the processed segments to disk
