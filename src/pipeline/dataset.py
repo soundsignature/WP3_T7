@@ -390,6 +390,8 @@ class EcossDataset:
         plt.ylabel("# of sound signatures")
         plt.show()
         
+        print(f"Number of sound signatures per source: {count_signatures}\n")
+
         # Plot for time per class of sound signature
         times = dict()
         for i, row in self.df.iterrows():
@@ -405,6 +407,8 @@ class EcossDataset:
         plt.xlabel("Source")
         plt.ylabel("Time (s)")
         plt.show()
+
+        print(f"Number of seconds per source: {times}\n")
 
         # Plotting per split (train and test)
         if 'split' in self.df.columns:
@@ -432,6 +436,10 @@ class EcossDataset:
             
             ax[0].set_title("Train data")
             ax[1].set_title("Test data")
+            
+            print(f"Number of sound signatures per source for train set: {count_signatures_train}\n")
+            print(f"Number of sound signatures per source for test set: {count_signatures_test}\n")
+            
             plt.tight_layout()
             plt.show()
             
@@ -468,6 +476,10 @@ class EcossDataset:
             
             ax[0].set_title("Train data")
             ax[1].set_title("Test data")
+
+            print(f"Number of seconds per source for train set: {times_train}\n")
+            print(f"Number of seconds per source for test set: {times_test}\n")
+
             plt.tight_layout()
             plt.show()
             
