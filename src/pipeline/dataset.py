@@ -122,6 +122,7 @@ class EcossDataset:
                 raise ValueError("Unsupported file format. Only WAV and FLAC are supported.")
         
         self.df.drop(indexes_delete, inplace=True)
+        self.df.reset_index(drop=True, inplace=True)
 
     def split_train_test_balanced(self, test_size=0.2, random_state=None):
         """
