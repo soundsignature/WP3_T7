@@ -3,7 +3,7 @@
 import yaml
 
 def load_yaml(yaml_path: str) -> dict:
-    """Function used to load the yaml content. Useful for
+    """Function used to load the yaml content. Useful for reading configuration files or any other data stored in YAML format.
 
     Args:
         yaml_path (str): The absolute path to the yaml
