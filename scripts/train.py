@@ -47,7 +47,7 @@ if __name__ == "__main__":
         model = VggishModel(yaml_content=yaml_content,data_path=data_path)
     
     model.plot_processed_data()
-    # model.train(results_folder = results_folder)
+    model.train(results_folder = results_folder)
     
         
     
