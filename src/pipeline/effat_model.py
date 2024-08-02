@@ -15,15 +15,15 @@ class EffAtModel():
 
         
 
-    def train(self):
+    def train(self,results_folder):
         pass
 
 
-    def test(self):
+    def test(self,results_folder):
         pass
 
 
-    def inference(self):
+    def inference(self,results_folder):
         pass
 
 
