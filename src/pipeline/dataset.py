@@ -26,7 +26,7 @@ from tqdm import tqdm
 import logging
 
 UNWANTED_LABELS = ["Undefined"]
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 class EcossDataset:
     def __init__(self, path_dataset: str, path_store_data: str, pad_mode: str,
