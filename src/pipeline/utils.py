@@ -95,10 +95,6 @@ class AugmentMelSTFT(nn.Module):
         fmin = self.fmin + torch.randint(self.fmin_aug_range, (1,)).item()
         fmax = self.fmax + self.fmax_aug_range // 2 - torch.randint(self.fmax_aug_range, (1,)).item()
         
-        # MINE (ALLEVIATE MASKING)
-        # fmin = self.fmin + torch.randint(-self.fmin_aug_range, self.fmin_aug_range, (1,)).item()
-        # fmax = self.fmax + torch.randint(-self.fmax_aug_range // 2, self.fmax_aug_range // 2, (1,)).item()
-        
         # don't augment eval data
         if not self.training:
             fmin = self.fmin
