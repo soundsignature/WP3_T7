@@ -13,6 +13,8 @@ import logging
 from pathlib import Path
 import os
 import numpy as np
+from matplotlib import pyplot as plt
+import torchaudio
 
 from utils import AugmentMelSTFT
 
@@ -29,7 +31,7 @@ class EffAtModel():
     def __init__(self, yaml_content: dict, data_path: str) -> None:
         self.yaml = yaml_content
         self.data_path = data_path
-
+        self.mel = AugmentMelSTFT(freqm=10, timem=10)
         
 
     def train(self, results_folder: str) -> None:
@@ -68,16 +70,28 @@ class EffAtModel():
         path_classes = os.path.join(self.data_path, "train")
         available_classes = os.listdir(path_classes)
 
-        mel = AugmentMelSTFT() # Check if we want to plot augmented mels (masked) or not
         if augment == False:
-            mel.test()
+            self.mel.eval()
 
         for av_class in available_classes:
             path_wavs = os.path.join(path_classes, av_class)
             wav_to_plot = os.path.join(path_wavs,
                                        np.random.choice(os.listdir(path_wavs)))
-            logger.info("The file that will be plotted is {wav_to_plot}")
-            
+            logger.info(f"The file that will be plotted is {wav_to_plot}")
+
+            y, sr = torchaudio.load(wav_to_plot)
+            melspec = self.mel(y)
+            logger.info(f"The shape of the melspec is {melspec.shape}")
+
+            plt.figure()
+            plt.imshow(melspec[0], origin="lower")
+            plt.title(av_class)
+            plt.show()
+
+
+if __name__ == "__main__":
+    model = EffAtModel({'a': 1}, r"C:\Users\Jose Antonio\Desktop\ScriptsProyectos\cinea\wp3-t7\scripts\data")
+    model.plot_processed_data(augment=False)   
 
             
 
