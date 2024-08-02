@@ -14,27 +14,23 @@ class VggishModel():
 
 
 
-    def train():
+    def train(self):
         pass
 
 
-    def test():
+    def test(self):
         pass
 
 
-    def inference():
+    def inference(self):
         pass
 
 
-    def plot_results():
+    def plot_results(self):
         pass
 
 
-    def read_yaml_file():
-        pass
-
-
-    def save_weights():
+    def save_weights(self):
         pass
 
 

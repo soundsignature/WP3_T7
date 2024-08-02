@@ -15,29 +15,25 @@ class PasstModel():
 
 
 
-    def train():
+    def train(self):
         pass
 
 
-    def test():
+    def test(self):
         pass
 
 
-    def inference():
+    def inference(self):
         pass
 
 
-    def plot_results():
+    def plot_results(self):
         pass
 
 
-    def read_yaml_file():
+    def save_weights(self):
         pass
 
 
-    def save_weights():
-        pass
-
-
-    def plot_processed_data():
+    def plot_processed_data(self):
         pass
