@@ -9,3 +9,4 @@ src/pipeline/log.log
 config.yaml
 scripts/log.log
 src/pipeline/__pycache__/
+scripts/runs
