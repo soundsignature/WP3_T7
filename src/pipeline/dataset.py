@@ -27,106 +27,19 @@ from tqdm import tqdm
 UNWANTED_LABELS = ["Undefined"]
 
 class EcossDataset:
-    def __init__(self, path_dataset: str, path_store_data: str, pad_mode: str,
+    def __init__(self, dataset_path: str, path_store_data: str, pad_mode: str,
                  sr: float, duration: float, saving_on_disk: bool):
-        self.path_dataset = path_dataset
+        self.dataset_path = dataset_path
         self.path_store_data = path_store_data
         self.pad_mode = pad_mode
         self.sr = sr
         self.duration = duration
         self.segment_length = int(self.duration * self.sr)
         self.saving_on_disk = saving_on_disk
-        self.path_annots = os.path.join(self.path_dataset, 'samples for training', 'annotations.csv')
-        self.dataset_name = os.path.basename(os.path.normpath(self.path_dataset))
-        self.df = pd.read_csv(self.path_annots, sep=";")
+        self.dataset_name = os.path.basename(os.path.normpath(self.dataset_path))  # Gets the dataset name for generating the file column
+        self.annots_path = os.path.join(self.dataset_path, 'samples for training', 'annotations.csv')
+        self.df = pd.read_csv(self.annots_path, sep=";")
     
-    @staticmethod
-    def concatenate_ecossdataset(dataset_list):
-        """
-        Checks the EcossDataset object provided in a list have the same variables and then generates a new object with
-        a concatenated dataframe. path_dataset and path_store_data taken from the first EcossDataset in the list.
-
-        Inputs
-        -------
-        dataset_list : List with EcossDataset to be concatenated
-
-        Outputs
-        -------
-        EcossDataset with concatenated DataFrame
-        """
-
-        #Extract values to compare
-        path_dataset0 = dataset_list[0].path_dataset
-        sr0 = dataset_list[0].sr
-        duration0 = dataset_list[0].duration
-        padding0 = dataset_list[0].pad_mode
-        save0 = dataset_list[0].saving_on_disk
-        path_store0 = dataset_list[0].path_store_data
-        #Start populatinf DataFrame list
-        df_list = [dataset_list[0].df]
-        #Iterate over list to check appropiate values, exiting function it variables do not match
-        for dataset in dataset_list[1:]:
-            if dataset.sr != sr0 or dataset.duration != duration0 or dataset.pad_mode != padding0 or dataset.saving_on_disk != save0:
-                print("The datasets selected do not have the same characteristics")
-                return
-            else:
-                df_list.append(dataset.df)
-        #Create EcossDataset object with concatenated info
-        ConcatenatedEcoss = EcossDataset(path_dataset=path_dataset0, path_store_data=path_store0,
-                                         pad_mode=padding0, sr=sr0, duration=duration0, saving_on_disk=save0)
-        ConcatenatedEcoss.df = pd.concat(df_list,ignore_index=True)
-        return ConcatenatedEcoss
-
-
-    def add_file_column(self):
-        """
-        Adds the file column in order to keep track of each file of the dataset
-
-        Parameters:
-       
-        Nonce
- 
-        Returns:
-        None (updates df atribute with an extra columnn named 'file')
-        """
-        self.df["file"] = ''
-        for i, row in self.df.iterrows():
-            self.df.at[i, "file"] = os.path.join(self.path_dataset,
-                                                 'samples for training',
-                                                 self.df.at[i, 'reference'])
-
-
-    def filter_lower_sr(self):
-        """
-        Filters the rows of the df attribute which contains a sampling rate lower than the desired 
-
-        Parameters:
-       
-        None
- 
-        Returns:
-        None (updates pd.DataFrame: original DataFrame by filtering the signals with a lower sampling rate)
-        """
-        indexes_delete = []
-        for i, row in self.df.iterrows():
-            if row["file"].endswith('.wav'):
-                with wave.open(row["file"], 'rb') as wav_file:
-                    sr = wav_file.getframerate()
-                    if sr < self.sr:
-                        indexes_delete.append(i)
-                        print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
-            elif row["file"].endswith('.flac'):
-                audio = FLAC(row["file"])
-                sr = audio.info.sample_rate
-                if sr < self.sr:
-                    indexes_delete.append(i)
-                    print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
-            else:
-                raise ValueError("Unsupported file format. Only WAV and FLAC are supported.")
-        
-        self.df.drop(indexes_delete, inplace=True)
-        self.df.reset_index(drop=True, inplace=True)
-
     def split_train_test_balanced(self, test_size=0.2, random_state=None):
         """
         Divides the dataframe in train and test at file level, ensuring a balanced class distribution.
@@ -177,6 +90,7 @@ class EcossDataset:
         """
         overlap_info_processed = self._extract_overlapping_info()
         self.df["overlap_info_processed"] = overlap_info_processed
+        print(self.df["overlap_info_processed"])
         # self.df.dropna(subset=["final_source"],inplace=True)
         self.df["to_delete"] = False
         if visualize_overlap:
@@ -290,15 +204,18 @@ class EcossDataset:
         # Now, we can proceed to eliminate the unwanted labels
         self.drop_unwanted_labels(UNWANTED_LABELS)
     
-    def process_all_data(self):
+    def process_all_data(self, signals_list, original_sr_list, paths_list, labels_list):
         """
-        Process the signals and return processed signals, labels, and splits according to the sample rate, duration, and pad_mode chosen.
+        Process the signals and return processed signals and labels, according to the sample rate, duration and pad_mode chosen.
+
+        Parameters:
+        signals_list (list): List of signal arrays.
+        original_sr_list (list): List of original sampling rates.
+        paths_list (list): List of paths corresponding to each signal.
+        labels_list (list): List of labels corresponding to each signal.
 
         Returns:
-        tuple: A tuple containing three lists:
-            - processed_signals (list): List of processed signal segments.
-            - processed_labels (list): List of labels corresponding to each processed segment.
-            - processed_splits (list): List of split information ('train' or 'test') for each processed segment.
+        tuple: list of processed signals and  list of the corresponding labels.
         """
         processed_signals = []
         processed_labels = []
@@ -306,17 +223,7 @@ class EcossDataset:
         files_dict = {}
         # TODO: Add to logging where are files being saved and info of the process 
         # Iterate over all signals,sr,paths,labels
-        for i,row in tqdm(self.df.iterrows(), total=self.df.shape[0],desc='Processing Audios'):
-            # [signal, original_sr, path, label]
-            # Load audio file
-            signal, original_sr = sf.read(row["file"])
-            if "final_source" in row.index:
-                label = row["final_source"]
-            else:
-                label = row["label_source"]
-            split = row["split"]
-            # Extract only the label segment
-            signal = signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
+        for signal, original_sr, path, label in zip(signals_list, original_sr_list, paths_list, labels_list):
             # Process the signal
             segments = self.process_data(signal, original_sr)
             # Count how many times 
@@ -331,17 +238,16 @@ class EcossDataset:
                     # Save the processed segments to disk
                     if self.saving_on_disk:
                         self.save_data(segments, path)
-                except Exception as e:
-                    print('Error : data could not be saved: '+ str(e))
+                except:
+                    print('Error : data could not be saved')
+                    
             # Extend the lists of processed signals and labels 
             processed_signals.extend(segments)
-            processed_labels.extend([label] * len(segments))
-            processed_splits.extend([split] * len(segments))
-            
+            processed_labels.extend(label * len(segments))
         
         # Ensure the lengths of signals and labels match  
-        assert len(processed_signals)==len(processed_labels),f'Error : signals and labels processed have different length. Signal: {len(processed_signals)}, labels: {len(processed_labels)}'
-        return processed_signals, processed_labels, processed_splits
+        assert len(processed_signals)==len(processed_labels),'Error : signals and labels processed have different length'
+        return processed_signals, processed_labels
                         
             
     def process_data(self, signal, original_sr):
@@ -384,7 +290,7 @@ class EcossDataset:
         n_segments = len(signal)//(self.segment_length)
         # Extract each segment and append to the list
         for i in range(n_segments):
-            segment = signal[(i*self.segment_length):((i+1)*self.segment_length)]
+            segment = signal[(i*self.segment_length):(i+1*self.segment_length)]
             segments.append(segment)
         return segments
             
@@ -458,38 +364,24 @@ class EcossDataset:
     
     def save_data(self, segments, path):
         """
-        Save the processed segments to disk in the specified format (pickle or wav).
+        Save the processed segments to disk  in the folder "././cache" as pickle files.
 
         Parameters:
-        segments (list): List of processed segments to be saved.
-        path (str): Path to the directory where the segments will be saved.
-
-        Raises:
-        ValueError: If the saving format specified in self.saving_on_disk is not 'pickle' or 'wav'.
-
-        Notes:
-        - If the saving format is 'pickle', each segment will be saved as a separate pickle file.
-        - If the saving format is 'wav', each segment will be saved as a separate wave file.
-        - The files will be saved in the directory specified by self.path_store_data combined with the provided path.
-        - The directory will be created if it does not exist.
+        segments (list): List of processed segments.
+        path (str): Path to save the segments.
         """
         # Create the cache directory if it does not exist
-        save_path = Path(self.path_store_data) / path
-        save_path.parent.mkdir(parents = True, exist_ok = True)
-        filename = save_path 
-        if self.saving_on_disk == "pickle":
-            # Save each segment as a separate pickle file
-            for idx, segment in enumerate(segments):
-                saving_filename = str(filename) + '-' + f"{idx:03d}" + '.pickle'
-                with open(saving_filename, 'wb') as f:
-                    pickle.dump(segment, f, protocol=pickle.HIGHEST_PROTOCOL)
-        elif self.saving_on_disk == "wav":
-            # Save each segment as a separate wave file
-            for idx, segment in enumerate(segments):
-                saving_filename = str(filename) + '-' + f"{idx:03d}" + '.wav'
-                sf.write(saving_filename, segment, int(self.sr))
-        else:
-            raise ValueError(f"saving_on_disk should be pickle or wav, not {self.saving_on_disk}")
+        os.makedirs(self.path_store_data, exist_ok=True)
+        # Extract the base filename from the path
+        filename = path.split('.')[0].replace('/', '_')[1:]
+        
+        # Save each segment as a separate pickle file
+        for idx, segment in enumerate(segments):
+            saving_filename = filename + '-' + str(idx) + '.pickle'
+            with open(os.path.join(self.path_store_data, saving_filename), 'wb') as f:
+                pickle.dump(segment, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        
         
     # TODO: When the splitting is performed, go for metrics per split
     def generate_insights(self):
@@ -534,82 +426,10 @@ class EcossDataset:
         plt.xlabel("Source")
         plt.ylabel("Time (s)")
         plt.show()
+        
+        if "split" in self.df.columns:
+            print('aaaaaaaaaaaaa')
 
-        print(f"Number of seconds per source: {times}\n")
-
-        # Plotting per split (train and test)
-        if 'split' in self.df.columns:
-            df_train = self.df[self.df["split"] == "train"]
-            df_test = self.df[self.df["split"] == "test"]
-            
-            # Number of sound signatures related
-            fig, ax = plt.subplots(ncols=2, figsize=(12,6))
-            count_signatures_train = df_train["final_source"].value_counts()
-            count_signatures_test = df_test["final_source"].value_counts()
-            ax[0].bar(range(0, len(count_signatures_train)), count_signatures_train)
-            ax[1].bar(range(0, len(count_signatures_test)), count_signatures_test)
-
-            ax[0].set_xticks(range(0, len(count_signatures_train)),
-                               count_signatures_train.index.to_list(),
-                               horizontalalignment='center',
-                               rotation=45)
-            ax[1].set_xticks(range(0, len(count_signatures_test)),
-                               count_signatures_test.index.to_list(),
-                               horizontalalignment='center',
-                               rotation=45)
-
-            ax[0].set_xlabel("Source")
-            ax[0].set_ylabel("# of sound signatures")
-            
-            ax[0].set_title("Train data")
-            ax[1].set_title("Test data")
-            
-            print(f"Number of sound signatures per source for train set: {count_signatures_train}\n")
-            print(f"Number of sound signatures per source for test set: {count_signatures_test}\n")
-            
-            plt.tight_layout()
-            plt.show()
-            
-            # Time related
-            times_train = dict()
-            times_test = dict()
-
-            for i, row in df_train.iterrows():
-                if row["final_source"] not in times_train.keys():
-                    times_train[row["final_source"]] = row["tmax"] - row["tmin"]
-                else:
-                    times_train[row["final_source"]] += row["tmax"] - row["tmin"]
-            for i, row in df_test.iterrows():
-                if row["final_source"] not in times_test.keys():
-                    times_test[row["final_source"]] = row["tmax"] - row["tmin"]
-                else:
-                    times_test[row["final_source"]] += row["tmax"] - row["tmin"]
-
-            fig, ax = plt.subplots(ncols=2, figsize=(12,6))
-            ax[0].bar(range(0, len(times_train)), times_train.values())
-            ax[1].bar(range(0, len(times_test)), times_test.values())
-            
-            ax[0].set_xticks(range(0, len(times_train)),
-                               list(times_train.keys()),
-                               horizontalalignment='center',
-                               rotation=45)
-            ax[1].set_xticks(range(0, len(times_test)),
-                               list(times_test.keys()),
-                               horizontalalignment='center',
-                               rotation=45)
-
-            ax[0].set_xlabel("Source")
-            ax[0].set_ylabel("Time (s)")
-            
-            ax[0].set_title("Train data")
-            ax[1].set_title("Test data")
-
-            print(f"Number of seconds per source for train set: {times_train}\n")
-            print(f"Number of seconds per source for test set: {times_test}\n")
-
-            plt.tight_layout()
-            plt.show()
-            
 
     def _extract_overlapping_info(self):
         """
@@ -804,24 +624,15 @@ class SuperpositionType(Enum):
 
 if __name__ == "__main__":
     load_dotenv()
-    ANNOTATIONS_PATH = os.getenv("DATASET_PATH")
-    ANNOTATIONS_PATH2 = os.getenv("DATASET_PATH2")
-    ANNOTATIONS_PATH3 = os.getenv("DATASET_PATH3")
-    # LABELS =
-    ecoss_list = []
-    for ANNOT_PATH in [ANNOTATIONS_PATH, ANNOTATIONS_PATH2, ANNOTATIONS_PATH3]:
-        ecoss_data1 = EcossDataset(ANNOT_PATH, 'data/', 'zeros', 32000.0, 1,"wav")
-        ecoss_data1.add_file_column()
-        ecoss_data1.fix_onthology(labels=[])
-        ecoss_data1.filter_overlapping()
-        ecoss_list.append(ecoss_data1)
-        
-    ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
-    length_prior_filter = len(ecoss_data.df)
-    ecoss_data.filter_lower_sr()
-    assert length_prior_filter != len(ecoss_data.df), "The number of rows is the same"
+    ANNOTATIONS_PATH = os.getenv("ANNOTATIONS_PATH")
+    # LABELS = 
+    ecoss_data = EcossDataset(ANNOTATIONS_PATH, '.', 'zeros', 32000.0, 1,False)
+    ecoss_data.fix_onthology(labels=[])
+    ecoss_data.filter_overlapping()
     times = ecoss_data.generate_insights()
     ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
-
+    # signals, sr, paths, labels = ...
+    # signals_processed, labels_processed = ecoss_data.process_all_data(signals_list=signals, original_sr_list=sr, paths_list=paths, labels_list=labels)
     
     signals_processed, labels_processed,split  = ecoss_data.process_all_data()
+   
