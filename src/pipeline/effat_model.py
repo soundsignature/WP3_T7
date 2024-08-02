@@ -31,7 +31,7 @@ class EffAtModel():
     def __init__(self, yaml_content: dict, data_path: str) -> None:
         self.yaml = yaml_content
         self.data_path = data_path
-
+        self.mel = AugmentMelSTFT(freqm=10, timem=10)
         
 
     def train(self, results_folder: str) -> None:
@@ -70,9 +70,8 @@ class EffAtModel():
         path_classes = os.path.join(self.data_path, "train")
         available_classes = os.listdir(path_classes)
 
-        mel = AugmentMelSTFT(freqm=10, timem=10) # Check if we want to plot augmented mels (masked) or not
         if augment == False:
-            mel.eval()
+            self.mel.eval()
 
         for av_class in available_classes:
             path_wavs = os.path.join(path_classes, av_class)
@@ -81,7 +80,7 @@ class EffAtModel():
             logger.info(f"The file that will be plotted is {wav_to_plot}")
 
             y, sr = torchaudio.load(wav_to_plot)
-            melspec = mel(y)
+            melspec = self.mel(y)
             logger.info(f"The shape of the melspec is {melspec.shape}")
 
             plt.figure()
