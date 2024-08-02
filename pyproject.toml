@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "pipeline"
+version = "0.1.0"
+description = ""
+authors = ["Jose Antonio <joseantoniogarcia@ctnaval.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pandas = "^2.2.2"
+matplotlib = "^3.9.1"
+python-dotenv = "^1.0.1"
+numpy = "<2.0.0"
+librosa = "^0.10.2.post1"
+soundfile = "^0.12.1"
+mutagen = "^1.47.0"
+tqdm = "^4.66.4"
+pyyaml = "^6.0.1"
+torch = {version = "^2.4.0+cu118", source = "pytorch_gpu"}
+torchaudio = {version = "^2.4.0+cu118", source = "pytorch_gpu"}
+
+
+[[tool.poetry.source]]
+name = "pytorch_gpu"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,12 @@
+.env
+venv/
+poetryvenv/
+.venv/
+data/
+*.pickle
+raw_data/
+src/pipeline/log.log
+config.yaml
+scripts/log.log
+src/pipeline/__pycache__/
+scripts/runs
