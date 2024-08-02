@@ -5,3 +5,4 @@ poetryvenv/
 data/
 *.pickle
 raw_data/
+src/pipeline/log.log
