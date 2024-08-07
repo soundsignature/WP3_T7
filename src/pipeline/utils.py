@@ -47,7 +47,18 @@ def create_exp_dir(name: str, model: str, task: str) -> str:
     return str(exp_path)
 
 
+def flatten(array):
+    """
+    Flatten a NumPy array.
 
+    Parameters:
+    - array (numpy.ndarray): The input array to be flattened.
+
+    Returns:
+    - flatten_array (numpy.ndarray): The flattened array.
+    """
+    flatten_array = array.flatten()
+    return flatten_array
 
 
 class AugmentMelSTFT(nn.Module):
@@ -116,4 +127,5 @@ class AugmentMelSTFT(nn.Module):
         melspec = (melspec + 4.5) / 5.  # fast normalization
 
         return melspec
+    
     
