@@ -39,7 +39,7 @@ PROJECT_FOLDER = os.path.dirname(__file__).replace('/pipeline', '/models')
 PARENT_PROJECT_FOLDER = os.path.dirname(PROJECT_FOLDER)
 sys.path.append(PARENT_PROJECT_FOLDER)
 
-import vggish_modules.vggish_params as params
+import models.vggish_modules.vggish_params as params
 
 
 def define_vggish_slim(features_tensor=None, training=False):

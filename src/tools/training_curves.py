@@ -5,6 +5,7 @@ import numpy as np
 
 class ValidationPlot:
     def __init__(self, gridsearch):
+        self.gridsearch = gridsearch
         self.grid_results = gridsearch.cv_results_
         self.best_parameters = gridsearch.best_params_
         self.grid_params = self.grid_results['param_C']
@@ -22,20 +23,20 @@ class ValidationPlot:
 
     def plot(self):
         metric = 'accuracy'
-        best_params_show = self.best_parameters['param_C']
+        best_params_show = self.best_parameters['C']
 
-        del self.best_parameters[self.grid_params]
+        # del self.best_parameters[self.grid_params]
         df_grid = pd.DataFrame(self.grid_results)
 
-        if len(self.best_parameters) != 0:
-            df_grid = self.get_filtered_dataset(df=df_grid, filters=self.best_parameters)
+        # if len(self.best_parameters) != 0:
+            # df_grid = self.get_filtered_dataset(df=df_grid, filters=self.best_parameters)
 
         fig, ax = plt.subplots(figsize=(8, 6))
 
         validation_metric = df_grid['mean_test_score'].to_numpy()
         training_metric = df_grid['mean_train_score'].to_numpy()
  
-        param_values = np.unique(np.array(list(self.grid_results['param_' + self.grid_params])))
+        param_values = np.unique(np.array(list(self.grid_results['param_C'])))
         
         lim0_val = df_grid['mean_test_score'].to_numpy()-df_grid['std_test_score'].to_numpy()
         lim1_val = df_grid['mean_test_score'].to_numpy()+df_grid['std_test_score'].to_numpy()

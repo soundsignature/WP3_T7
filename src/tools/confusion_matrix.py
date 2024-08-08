@@ -11,7 +11,7 @@ class ConfusionMatrix:
         """
         self.labels_mapping_path = labels_mapping_path
 
-    def plot(self, Y, Y_pred):
+    def plot(self, y_true, y_pred):
         """
         Plot the confusion matrix.
 
@@ -23,15 +23,15 @@ class ConfusionMatrix:
         - fig (matplotlib.figure.Figure): The generated matplotlib figure.
         """
         # Compute confusion matrix and normalize
-        confusion_matrix = metrics.confusion_matrix(Y, Y_pred)
+        confusion_matrix = metrics.confusion_matrix(y_true, y_pred)
         
    
         with open(self.labels_mapping_path, 'r') as file:
             label_mapping = json.load(file)
-            true = np.array([label_mapping[str(label)] for label in true])
-            pred = np.array([label_mapping[str(label)] for label in pred])
+            y_true = np.array([label_mapping[str(label)] for label in y_true])
+            # y_pred = np.array([label_mapping[str(label)] for label in y_pred])
         
-        labels = np.unique(Y)
+        labels = np.unique(y_true)
         
         cm_percent = confusion_matrix / confusion_matrix.sum(axis=1, keepdims=True)
 

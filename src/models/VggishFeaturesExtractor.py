@@ -6,23 +6,20 @@ PROJECT_FOLDER = os.path.dirname(__file__).replace('/pipeline', '/models')
 PARENT_PROJECT_FOLDER = os.path.dirname(PROJECT_FOLDER)
 sys.path.append(PARENT_PROJECT_FOLDER)
 
-from vggish_modules import vggish_input
-from vggish_modules import vggish_params
-from vggish_modules import vggish_slim
+from models.vggish_modules import vggish_input
+from models.vggish_modules import vggish_params
+from models.vggish_modules import vggish_slim
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 class VggishFeaturesExtractor():
-    def __init__(self, target_duration, target_sample_rate):
+    def __init__(self, sample_rate):
         """
         Initialize the VggishFeaturesExtractor.
-
-        Parameters:
-        - checkpoint_path (str): Path to the VGGish checkpoint file..
         """
-        self.checkpoint_path = 'src/features/vggish_modules/vggish_model.ckpt'
-        self.target_duration = target_duration
-        self.target_sample_rate = target_sample_rate
+        self.checkpoint_path = 'src/models/vggish_modules/vggish_model.ckpt'
+        # self.target_duration = target_duration
+        self.sample_rate = sample_rate
         self.graph = tf.Graph()
         with self.graph.as_default():
             self.sess = tf.Session()
@@ -43,7 +40,7 @@ class VggishFeaturesExtractor():
         - embedding_batch (numpy.ndarray): The extracted VGGish features.
         """
         # Convert the audio file to VGGish input batch
-        audio_batch = vggish_input.wavfile_to_examples(path, self.target_duration, self.target_sample_rate)
+        audio_batch = vggish_input.wavfile_to_examples(path,self.sample_rate)
         # Set up a TensorFlow graph and session
         with self.graph.as_default():
             [embedding_batch] = self.sess.run([self.embedding_tensor], feed_dict={self.features_tensor: audio_batch})

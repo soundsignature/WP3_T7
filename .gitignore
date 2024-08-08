@@ -10,3 +10,10 @@ config.yaml
 scripts/log.log
 src/pipeline/__pycache__/
 scripts/runs
+runs/
+*.ckpt
+*.wav
+*.csv
+__pycache__
+*.log
+*.yaml

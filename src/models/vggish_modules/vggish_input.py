@@ -16,7 +16,6 @@
 """Compute input examples for VGGish from audio waveform."""
 
 import numpy as np
-import librosa
 import resampy
 import os
 import sys
@@ -25,8 +24,8 @@ PROJECT_FOLDER = os.path.dirname(__file__).replace('/pipeline', '/models')
 PARENT_PROJECT_FOLDER = os.path.dirname(PROJECT_FOLDER)
 sys.path.append(PARENT_PROJECT_FOLDER)
 
-from vggish_modules import mel_features
-from vggish_modules import vggish_params
+from models.vggish_modules import mel_features
+from models.vggish_modules import vggish_params
 
 try:
   import soundfile as sf
@@ -88,7 +87,7 @@ def waveform_to_examples(data, sample_rate):
   return log_mel_examples
 
 
-def wavfile_to_examples(wav_file, target_duration,  target_sample_rate):
+def wavfile_to_examples(wav_file, sample_rate):
   """Convenience wrapper around waveform_to_examples() for a common WAV format.
 
   Args:
@@ -103,39 +102,8 @@ def wavfile_to_examples(wav_file, target_duration,  target_sample_rate):
   else:
     wav_data = wav_file
     wav_data = np.int16(wav_data * np.iinfo(np.int16).max)
-  
-    sr = target_sample_rate
     
   assert wav_data.dtype == np.int16, 'Bad sample type: %r' % wav_data.dtype
   samples = wav_data / 32768.0  # Convert to [-1.0, +1.0]
-  samples, sr = preprocess_raw_audio(samples, sr, target_duration, target_sample_rate)
-  return waveform_to_examples(samples, sr)
+  return waveform_to_examples(samples, sample_rate)
 
-
-def preprocess_raw_audio(x, sr,  target_duration, target_sample_rate):
-    """
-    Preprocess audio by resampling, resizing, and saving to a target folder.
-
-    Args:
-        x : The signal of the audio file.
-        sr: The sample rate of the audio file
-        target_duration (float): The desired duration of the audio in seconds.
-        target_sample_rate (int): The target sample rate for resampling.
-
-    Returns:
-        x : audio signale preproccesed
-        sr: sample rate
-    """
-    # Resample audio if the sample rate is different from the target
-    if sr != target_sample_rate:
-        x = librosa.resample(y=x, orig_sr=sr, target_sr=target_sample_rate)
-        sr = target_sample_rate
-
-    # Ensure the audio has the target duration
-    target_length = int(target_duration * sr)
-    if len(x) < target_length:
-        x = np.pad(x, (0, target_length - len(x)))
-    elif len(x) > target_length:
-        x = x[:target_length]
-    
-    return x, sr
