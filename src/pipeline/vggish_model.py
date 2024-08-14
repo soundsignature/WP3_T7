@@ -18,8 +18,9 @@ import logging
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import GridSearchCV
+import soundfile as sf
 from src.models.VggishFeaturesExtractor import *
-
+import shutil
 logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
@@ -33,13 +34,25 @@ logger.addHandler(handler)
 class VggishModel():
     def __init__(self, yaml_content: dict, signals: list, labels:list, split_info:list, sample_rate:float, data_path: str = None) -> None:
         self.yaml = yaml_content
-    
-        self.features_extractor = VggishFeaturesExtractor(sample_rate = sample_rate)
+        self.sample_rate=sample_rate
+        self.train_data, self.test_data = self.get_train_test_data(X = signals, Y = labels, split = split_info, data_path = data_path)
+        self.features_extractor = VggishFeaturesExtractor(sample_rate = self.sample_rate)
         self.model  = SVC()
-        self.train_data, self.test_data = self.get_train_test_data(X = signals, Y = labels, split = split_info)
 
 
     def train(self, results_folder):
+        """
+        Compute the training. The data are processed by the feature extractor and the labels are encoded.
+        The training is performed using the best parameters found by the gridsearch for the SVM.
+        The model and the training plot are saved in the results_folder
+
+        Parameters:
+        results_folder (str): path to the folder where the results are saved
+        
+        Returns:
+        None
+        """
+        
         X, Y = self.data_preparation(data = self.train_data, saving_folder = results_folder)
         # Perform grid search for hyperparameter tuning
         grid_search = GridSearchCV(
@@ -61,6 +74,17 @@ class VggishModel():
 
 
     def test(self, results_folder):
+        """
+        Compute the test. The data are processed by the feature extractor and the labels are encoded.
+        The metrics "accuracy" and "macro F1" are computed and saved in the results_folder.
+        The test plot are saved in results_folder.
+
+        Parameters:
+        results_folder (str): path to the folder where the results are saved
+        
+        Returns:
+        None
+        """
         X, Y = self.data_preparation(data = self.test_data, saving_folder = results_folder)
         if self.yaml.get('model_path'):
             self.model = joblib.load(self.yaml.get('model_path'))
@@ -83,7 +107,20 @@ class VggishModel():
         return y
 
 
-    def plot_results(self, set, saving_folder, gridsearch = None, y_true = None, y_pred = None):
+    def plot_results(self, set, saving_folder, y_true, y_pred, gridsearch = None):
+        """
+        Compute the plots (Confusion Matrix/Training Curves) based on the procedure(train/test).
+
+        Parameters:
+        set (str): 'train' | 'test'
+        saving_folder (str): path to the folder where the results are saved
+        gridsearch (obj, optional): instance of fitted estimator.Defaults to None.
+        y_true (array, optional): ground truth  
+        y_pred (array, optional): labels predicted.
+        
+        Returns:
+        None
+        """
         if set == 'train':
             cf_matrix = ConfusionMatrix(labels_mapping_path = os.path.join(saving_folder, 'labels_mapping.json'))
             fig1 = cf_matrix.plot(y_true = y_true, y_pred = y_pred)
@@ -99,41 +136,129 @@ class VggishModel():
 
 
     def save_weigths(self,saving_folder):
+        """
+        Save the weigths of the model
+
+        Parameters:
+        saving_folder (str): path to the folder where the results are saved
+        
+        Returns:
+        None
+        """
         with open(os.path.join(saving_folder,'model.joblib'), 'wb') as f:
             joblib.dump(self.model, f)
+
 
     def plot_processed_data(self):
         pass
     
     
     def get_features(self, x):
+        """
+        Data preprocessing: 
+        - extraction of features using VGGish feature extractor 
+        - flatten the features extracted, resulting in a one-dimensional vector
+
+        Parameters:
+        x (array): signal
+
+        Returns:
+        array
+        """
         vggish_features = self.features_extractor(x)
         return flatten(vggish_features)
     
     
     def get_labels_encoding(self, Y, saving_folder):
-        label_encoder = LabelEncoder()
-        Y = label_encoder.fit_transform(Y)
-        self.save_labels_encoding(label_encoder, saving_folder)
-        return Y
-        
-    def get_train_test_data(self, X, Y, split):
-        train_index = [i for i, s in enumerate(split) if s == 'train']
-        x_train = [X[i] for i in train_index]
-        y_train = [Y[i] for i in train_index]
+        """
+        Labels encoding. 
+        If a labels encoding is provided it is used, otherwhise it is created.
+        The labels enconding used is saved in the results_folder
 
-        test_index = [i for i, s in enumerate(split) if s == 'test']
-        x_test = [X[i] for i in test_index]
-        y_test = [Y[i] for i in test_index]
+        Parameters:
+        Y (list): labels
+        saving_folder (str): path to the folder where the results are saved
 
-        if len(train_index) < 1 and len(test_index) < 1:
-            logger.error(f"Error. N° train data: {len(x_train)}. N° test data: {len(x_test)}.")
-            exit()
+        Returns:
+        list: list of labels encoded
+        """
+        Y_encoded = []
+        if self.yaml.get('labels_mapping_path'):
+            with open(self.yaml.get('labels_mapping_path'), 'r') as file:
+                data = json.load(file)
+                unique_labels = list(data.values())
+                encoded_labels = list(data.keys())
+                for el in Y:
+                    idx = unique_labels.index(el)
+                    Y_encoded.append(int(encoded_labels[idx]))
+            shutil.copyfile(self.yaml.get('labels_mapping_path'), os.path.join(saving_folder,"labels_mapping.json"))
+        else:
+            label_encoder = LabelEncoder()
+            Y_encoded = label_encoder.fit_transform(Y)
+            self.save_labels_encoding(label_encoder, saving_folder)
+        return Y_encoded
+    
+    
+    def get_train_test_data(self, X = None, Y = None, split = None, data_path = None):
+        """
+        Get train and test data.
 
+        Parameters:
+        X (list, optional): list of signals read. Defaults to None.
+        Y (list, optional): list of labels. Defaults to None.
+        split (list, optional): list of split info. Defaults to None.
+        data_path (str, optional): path to dataset. Defaults to None.
+
+        Returns:
+        list of tuple, list of tuple: list of tuple of signals and the correspondig labels for train and test
+        """
+        # if we have the signal already read and the information about the train/test split
+        if X and Y and split:
+            train_index = [i for i, s in enumerate(split) if s == 'train']
+            x_train = [X[i] for i in train_index]
+            y_train = [Y[i] for i in train_index]
+
+            test_index = [i for i, s in enumerate(split) if s == 'test']
+            x_test = [X[i] for i in test_index]
+            y_test = [Y[i] for i in test_index]
+
+            if len(train_index) < 1 and len(test_index) < 1:
+                logger.error(f"Error. N° train data: {len(x_train)}. N° test data: {len(x_test)}.")
+                exit()
+        # if we need to read the audio from the data store
+        else:
+            x_train, y_train = [], []
+            x_test, y_test = [], []
+            unique_train_labels = os.listdir(os.path.join(data_path, 'train'))
+            for label in unique_train_labels:
+                audio_files = os.listdir(os.path.join(data_path,'train', label))
+                for audio in audio_files:
+                    signal, sr = sf.read(audio)
+                    x_train.append(signal)
+                    y_train.append(label)
+                    
+            unique_test_labels = os.listdir(os.path.join(data_path, 'test'))
+            for label in unique_test_labels:
+                audio_files = os.listdir(os.path.join(data_path,'test', label))
+                for audio in audio_files:
+                    signal, _ = sf.read(audio)
+                    x_test.append(signal)
+                    y_test.append(label)
+                    
         return [(x_train[i], y_train[i]) for i in range(0, len(x_train))], [(x_test[i], y_test[i]) for i in range(0, len(x_test))]
-       
+                    
         
     def save_labels_encoding(self, label_encoder, saving_folder):
+        """
+        Saving the labels encoding used
+        
+        Parameters:
+        label_encoder: fitted label encoder.
+        saving_folder (str): path to the folder where the results are saved
+
+        Returns:
+        None
+        """
         label_mapping = {numeric_label: original_label for original_label, numeric_label in
                               zip(label_encoder.classes_, range(len(label_encoder.classes_)))}
         labels_mapping_path = os.path.join(saving_folder, "labels_mapping.json")
@@ -142,6 +267,16 @@ class VggishModel():
             
         
     def data_preparation(self, data, saving_folder):
+        """
+        Data preprocessing.
+        
+        Parameters:
+        data (list): lis of tuple [(x1,y1),(x2,y2),...]
+        saving_folder (str): path to the folder where the results are saved
+
+        Returns:
+        list, list: list of x and y ready to be fed to the classificator
+        """
         X, Y = [], []
         for x,y in data:
             X.append(self.get_features(x))
@@ -151,6 +286,16 @@ class VggishModel():
     
     
     def compute_scores(self, Y, Y_predicted):
+        """
+        Computing metrics(accuracy/macro F1 score)
+
+        Parameters:
+        Y (array): ground truth
+        Y_predicted (array): labels predicted
+
+        Returns:
+        float, float: accuracy and f1 score
+        """
         accuracy = accuracy_score(y_true=Y, y_pred=Y_predicted)
         f1 = f1_score(y_true=Y, y_pred=Y_predicted, average='macro')
         return accuracy, f1

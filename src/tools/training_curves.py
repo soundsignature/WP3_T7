@@ -25,11 +25,11 @@ class ValidationPlot:
         metric = 'accuracy'
         best_params_show = self.best_parameters['C']
 
-        # del self.best_parameters[self.grid_params]
+        del self.best_parameters['C']
         df_grid = pd.DataFrame(self.grid_results)
 
-        # if len(self.best_parameters) != 0:
-            # df_grid = self.get_filtered_dataset(df=df_grid, filters=self.best_parameters)
+        if len(self.best_parameters) != 0:
+            df_grid = self.get_filtered_dataset(df=df_grid, filters=self.best_parameters)
 
         fig, ax = plt.subplots(figsize=(8, 6))
 
@@ -50,9 +50,9 @@ class ValidationPlot:
         ax.fill_between(param_values, lim0_tr, lim1_tr, alpha=0.4, color = 'lightcoral')
         ax.plot(param_values, training_metric, marker='o', color='r', label='Training ' + metric)
 
-        ax.axvline(best_params_show, color ='green', linestyle= '--', alpha = 0.75, label = f'Best {str(self.grid_params)}') 
+        ax.axvline(best_params_show, color ='green', linestyle= '--', alpha = 0.75, label = 'Best C') 
         
-        ax.set_xlabel(str(self.grid_params), fontsize=10)
+        ax.set_xlabel('C', fontsize=10)
         ax.set_ylabel(metric, fontsize=10)
         fig.suptitle(f'Training and Validation {metric} for VGGish-SVM', fontsize=14, fontweight='bold' )
         ax.legend(loc = 'best', fontsize=10)

@@ -29,9 +29,12 @@ class ConfusionMatrix:
         with open(self.labels_mapping_path, 'r') as file:
             label_mapping = json.load(file)
             y_true = np.array([label_mapping[str(label)] for label in y_true])
-            # y_pred = np.array([label_mapping[str(label)] for label in y_pred])
+            y_pred = np.array([label_mapping[str(label)] for label in y_pred])
         
-        labels = np.unique(y_true)
+        if len(list(np.unique(y_true)))>len(list(np.unique(y_pred))):
+            labels = np.unique(y_true)
+        else:
+            labels = np.unique(y_pred)
         
         cm_percent = confusion_matrix / confusion_matrix.sum(axis=1, keepdims=True)
 
@@ -47,6 +50,8 @@ class ConfusionMatrix:
         cm_display_absolute.plot(ax=ax2, cmap='Blues', values_format='d')
         
         # Rotate labels in the second plot
+        ax1.set_xticklabels(labels, rotation=45)
+        ax1.set_yticklabels(labels, rotation=45)
         ax2.set_xticklabels(labels, rotation=45)
         ax2.set_yticklabels(labels, rotation=45)
         # Set a title for the entire figure
