@@ -166,7 +166,7 @@ class EffAtModel():
 
                 self.plot_results(train_losses, test_losses, train_accs, test_accs)
                 self.save_weights(optimizer)
-                self.save_results(train_label_encoder)
+                self.save_results(train_label_encoder, )
 
             else:
                 epochs_without_improvement += 1
@@ -219,11 +219,12 @@ class EffAtModel():
     
     def save_results(self, label_encoder):
         # Save the class dictionary
-        with open(self.save_results / 'class_dict.json', 'w') as json_file:
+        with open(self.results_folder / 'class_dict.json', 'w') as json_file:
             json.dump(label_encoder, json_file)
 
         # Save the results
-        
+
+
 
 
 
