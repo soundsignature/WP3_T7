@@ -1721,6 +1721,39 @@ url = "https://download.pytorch.org/whl/cu118"
 reference = "pytorch_gpu"
 
 [[package]]
+name = "torchvision"
+version = "0.19.0+cu118"
+description = "image and video datasets and models for torch deep learning"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "torchvision-0.19.0+cu118-cp310-cp310-linux_x86_64.whl", hash = "sha256:120cee8ca4688a287fcaae69fcc4284b48c04ef8cc7a53461200d8c047ffe998"},
+    {file = "torchvision-0.19.0+cu118-cp310-cp310-win_amd64.whl", hash = "sha256:1df164a998dd52ee9f3c43aede7a7e05b25914da4c502b317045a4c755d4a13e"},
+    {file = "torchvision-0.19.0+cu118-cp311-cp311-linux_x86_64.whl", hash = "sha256:0253ff28a46380e0149b2cff4eb96d8633a264a9774902b0d992cdf2feb6ff71"},
+    {file = "torchvision-0.19.0+cu118-cp311-cp311-win_amd64.whl", hash = "sha256:13e8d8fbcd768387b6dd12234f6bd55c14abd62c6ef933c4a97c0b1fba2486ae"},
+    {file = "torchvision-0.19.0+cu118-cp312-cp312-linux_x86_64.whl", hash = "sha256:5ab8b06c0110d28573b43b21a5f5f6a34c083c6dfe6f8870e4390d1e88723471"},
+    {file = "torchvision-0.19.0+cu118-cp312-cp312-win_amd64.whl", hash = "sha256:0102a52f7c7588c7bdf6898777dd9d2b82d61cbe429a27818875d0556137b52c"},
+    {file = "torchvision-0.19.0+cu118-cp38-cp38-linux_x86_64.whl", hash = "sha256:be0260a2aa2f77d2d4dba6b500f747ba1214c7c2e55aaac362a22b5d1dfcf3b5"},
+    {file = "torchvision-0.19.0+cu118-cp38-cp38-win_amd64.whl", hash = "sha256:c1a4a032746a2e1361789624bb345113458947aa5a8ae653719b185994d8e41f"},
+    {file = "torchvision-0.19.0+cu118-cp39-cp39-linux_x86_64.whl", hash = "sha256:1f595eae367fbe7a46ec85fe6c55fa4185ef8b31bde5ae9b018c6b615b09c7d7"},
+    {file = "torchvision-0.19.0+cu118-cp39-cp39-win_amd64.whl", hash = "sha256:03fc97a9058bb489aee898d2b7cef7e2e7636ecda1d9afbadf03e5b7268ae07a"},
+]
+
+[package.dependencies]
+numpy = "*"
+pillow = ">=5.3.0,<8.3.dev0 || >=8.4.dev0"
+torch = "2.4.0"
+
+[package.extras]
+gdown = ["gdown (>=4.7.3)"]
+scipy = ["scipy"]
+
+[package.source]
+type = "legacy"
+url = "https://download.pytorch.org/whl/cu118"
+reference = "pytorch_gpu"
+
+[[package]]
 name = "tqdm"
 version = "4.66.4"
 description = "Fast, Extensible Progress Meter"
@@ -1824,4 +1857,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "d208d9ab88ae712d627cb2b99193a61d5480b413564ab560cca72a8142595f2e"
+content-hash = "e284e9b2940f0f17b95866396312c3d7801749d21d1451d04e6104a36ff24ea7"

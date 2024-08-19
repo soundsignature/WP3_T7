@@ -18,6 +18,8 @@ import torchaudio
 from dotenv import load_dotenv
 
 from .utils import AugmentMelSTFT, load_yaml
+from .effat_repo.models.mn.model import get_model as get_mn
+from .effat_repo.models.dymn.model import get_model as get_dymn
 
 logging.basicConfig(level=logging.INFO)
 
@@ -29,11 +31,17 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 class EffAtModel():
-    def __init__(self, yaml_content: dict, data_path: str) -> None:
+    def __init__(self, yaml_content: dict, data_path: str, name_model: str, num_classes: int) -> None:
         self.yaml = yaml_content
         self.data_path = data_path
         self.mel = AugmentMelSTFT(freqm=self.yaml["freqm"],
                                   timem=self.yaml["freqm"])
+        self.name_model = name_model
+        self.num_classes = num_classes
+        if "dy" not in self.name_model:
+            self.model = get_mn(pretrained_name=self.name_model, num_classes=num_classes)
+        else:
+            self.model = get_dymn(pretrained_name=self.name_model, num_classes=num_classes)
         
 
     def train(self, results_folder: str) -> None:
@@ -95,8 +103,9 @@ if __name__ == "__main__":
     load_dotenv()
     DATASETS_PATH = os.getenv("DATASETS_PATH")
     YAML_PATH = os.getenv("YAML_PATH")
+    NAME_MODEL = os.getenv("NAME_MODEL")
 
-    model = EffAtModel(load_yaml(YAML_PATH), DATASETS_PATH)
+    model = EffAtModel(load_yaml(YAML_PATH), DATASETS_PATH, NAME_MODEL, 10)
     model.plot_processed_data(augment=True)   
 
             
