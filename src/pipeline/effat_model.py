@@ -21,6 +21,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch
 import json
+from sklearn.metrics import f1_score
 
 from .utils import AugmentMelSTFT, load_yaml, load_data, EffATWrapper, data_loader
 from .effat_repo.models.mn.model import get_model as get_mn
@@ -97,6 +98,8 @@ class EffAtModel():
             batch_count = 0
             correct = 0
             total = 0
+            all_preds = []
+            all_labels = []
             
             # Generating dataloaders every epochs because they are generators (can only be iterated once)
             train_dataloader = data_loader(train_data, self.mel, False, self.yaml["batch_size"])
@@ -123,9 +126,12 @@ class EffAtModel():
                 _, predicted = torch.max(outputs, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
-            
+                all_preds.extend(predicted.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+
             epoch_loss = running_loss / batch_count
             train_accuracy = 100 * correct / total
+            train_f1 = f1_score(all_labels, all_preds, average='weighted')
             
             # Evaluation
             self.model.eval()
@@ -133,6 +139,8 @@ class EffAtModel():
             batch_count = 0
             correct = 0
             total = 0
+            all_preds = []
+            all_labels = []
             
             with torch.no_grad():
                 for inputs, labels in tqdm(test_dataloader, desc="Test"):
@@ -147,11 +155,14 @@ class EffAtModel():
                     _, predicted = torch.max(outputs, 1)
                     total += labels.size(0)
                     correct += (predicted == labels).sum().item()
+                    all_preds.extend(predicted.cpu().numpy())
+                    all_labels.extend(labels.cpu().numpy())
 
                     
             avg_test_loss = test_loss / batch_count
             test_accuracy = 100 * correct / total
-            
+            test_f1 = f1_score(all_labels, all_preds, average='weighted')
+
             train_losses.append(epoch_loss)
             test_losses.append(avg_test_loss)
             train_accs.append(train_accuracy)
@@ -166,7 +177,12 @@ class EffAtModel():
 
                 self.plot_results(train_losses, test_losses, train_accs, test_accs)
                 self.save_weights(optimizer)
-                self.save_results(train_label_encoder, )
+                metrics = {"train_acc": train_accuracy,
+                           "test_acc": test_accuracy,
+                           "train_f1": train_f1,
+                           "test_f1": test_f1}
+                
+                self.save_results(train_label_encoder, metrics)
 
             else:
                 epochs_without_improvement += 1
@@ -217,12 +233,15 @@ class EffAtModel():
                 }, self.results_folder / 'model.pth')
         
     
-    def save_results(self, label_encoder):
+    def save_results(self, label_encoder, metrics):
         # Save the class dictionary
         with open(self.results_folder / 'class_dict.json', 'w') as json_file:
             json.dump(label_encoder, json_file)
 
         # Save the results
+        with open(self.results_folder / 'metrics.json', 'w') as json_file:
+            json.dump(metrics, json_file)
+
 
 
 
