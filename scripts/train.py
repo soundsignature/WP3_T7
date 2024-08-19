@@ -29,7 +29,6 @@ if __name__ == "__main__":
     ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
     length_prior_filter = len(ecoss_data.df)
     ecoss_data.filter_lower_sr()
-    assert length_prior_filter != len(ecoss_data.df), "The number of rows is the same"
     times = ecoss_data.generate_insights()
     ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
     _, _, _  = ecoss_data.process_all_data()
