@@ -35,7 +35,11 @@ class VggishModel():
     def __init__(self, yaml_content: dict, signals: list, labels:list, split_info:list, sample_rate:float, data_path: str = None) -> None:
         self.yaml = yaml_content
         self.sample_rate=sample_rate
-        self.train_data, self.test_data = self.get_train_test_data(X = signals, Y = labels, split = split_info, data_path = data_path)
+        self.signals = signals
+        self.labels = labels
+        self.split_info = split_info
+        self.data_path = data_path
+        # self.train_data, self.test_data = self.get_train_test_data(X = signals, Y = labels, split = split_info, data_path = data_path)
         self.features_extractor = VggishFeaturesExtractor(sample_rate = self.sample_rate)
         self.model  = SVC()
 
@@ -52,8 +56,8 @@ class VggishModel():
         Returns:
         None
         """
-        
-        X, Y = self.data_preparation(data = self.train_data, saving_folder = results_folder)
+        train_data = self.get_data(X = self.signals, Y = self.labels, split_info = self.split_info, data_path = self.data_path, split="train")
+        X, Y = self.data_preparation(data = train_data, saving_folder = results_folder)
         # Perform grid search for hyperparameter tuning
         grid_search = GridSearchCV(
             estimator=self.model,
@@ -85,7 +89,8 @@ class VggishModel():
         Returns:
         None
         """
-        X, Y = self.data_preparation(data = self.test_data, saving_folder = results_folder)
+        test_data = self.get_data(X = self.signals, Y = self.labels, split_info = self.split_info, data_path = self.data_path, split="test")
+        X, Y = self.data_preparation(data = test_data, saving_folder = results_folder)
         if self.yaml.get('model_path'):
             self.model = joblib.load(self.yaml.get('model_path'))
         Y_pred = self.model.predict(X)
@@ -103,7 +108,7 @@ class VggishModel():
         else:
             print('Error. model_path missing in the yaml configuration file')
             exit()
-        y = self.model.predict(x)
+        y = self.model.predict_proba(x)
         return y
 
 
@@ -199,53 +204,41 @@ class VggishModel():
         return Y_encoded
     
     
-    def get_train_test_data(self, X = None, Y = None, split = None, data_path = None):
+    def get_data(self, X = None, Y = None, split_info = None, data_path = None, split = None):
         """
         Get train and test data.
 
         Parameters:
         X (list, optional): list of signals read. Defaults to None.
         Y (list, optional): list of labels. Defaults to None.
-        split (list, optional): list of split info. Defaults to None.
+        split_info (list, optional): list of split info. Defaults to None.
+        split (str): 'train'/'test'
         data_path (str, optional): path to dataset. Defaults to None.
 
         Returns:
         list of tuple, list of tuple: list of tuple of signals and the correspondig labels for train and test
         """
         # if we have the signal already read and the information about the train/test split
-        if X and Y and split:
-            train_index = [i for i, s in enumerate(split) if s == 'train']
-            x_train = [X[i] for i in train_index]
-            y_train = [Y[i] for i in train_index]
+        if X and Y and split_info:
+            data_index = [i for i, s in enumerate(split_info) if s == split]
+            x_data = [X[i] for i in data_index]
+            y_data = [Y[i] for i in data_index]
 
-            test_index = [i for i, s in enumerate(split) if s == 'test']
-            x_test = [X[i] for i in test_index]
-            y_test = [Y[i] for i in test_index]
-
-            if len(train_index) < 1 and len(test_index) < 1:
-                logger.error(f"Error. N° train data: {len(x_train)}. N° test data: {len(x_test)}.")
+            if len(data_index) < 1:
+                logger.error(f"Error. N° data data: {len(x_data)}.")
                 exit()
         # if we need to read the audio from the data store
         else:
-            x_train, y_train = [], []
-            x_test, y_test = [], []
-            unique_train_labels = os.listdir(os.path.join(data_path, 'train'))
-            for label in unique_train_labels:
-                audio_files = os.listdir(os.path.join(data_path,'train', label))
+            x_data, y_data = [], []
+            unique_data_labels = os.listdir(os.path.join(data_path, split))
+            for label in unique_data_labels:
+                audio_files = os.listdir(os.path.join(data_path, split, label))
                 for audio in audio_files:
                     signal, sr = sf.read(audio)
-                    x_train.append(signal)
-                    y_train.append(label)
+                    x_data.append(signal)
+                    y_data.append(label)
                     
-            unique_test_labels = os.listdir(os.path.join(data_path, 'test'))
-            for label in unique_test_labels:
-                audio_files = os.listdir(os.path.join(data_path,'test', label))
-                for audio in audio_files:
-                    signal, _ = sf.read(audio)
-                    x_test.append(signal)
-                    y_test.append(label)
-                    
-        return [(x_train[i], y_train[i]) for i in range(0, len(x_train))], [(x_test[i], y_test[i]) for i in range(0, len(x_test))]
+        return [(x_data[i], y_data[i]) for i in range(0, len(x_data))]
                     
         
     def save_labels_encoding(self, label_encoder, saving_folder):

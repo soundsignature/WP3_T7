@@ -6,7 +6,7 @@ PARENT_PROJECT_FOLDER = os.path.dirname(PROJECT_FOLDER)
 sys.path.append(PARENT_PROJECT_FOLDER)
 
 from src.pipeline.passt_model import PasstModel
-# from src.pipeline.effat_model import EffAtModel
+from src.pipeline.effat_model import EffAtModel
 from src.pipeline.vggish_model import VggishModel
 from src.pipeline.dataset import EcossDataset
 from src.pipeline.utils import create_exp_dir, load_yaml
@@ -16,17 +16,16 @@ from dotenv import load_dotenv
 
 if __name__ == "__main__":
     load_dotenv()
-    # ANNOTATIONS_PATH = os.getenv("DATASET_PATH")
-    # ANNOTATIONS_PATH2 = os.getenv("DATASET_PATH2")
-    # ANNOTATIONS_PATH3 = os.getenv("DATASET_PATH3")
-    YAML_PATH = "/home/isabel/Documents/Projects/git/WP3_T7/src/vggish.yaml" #os.getenv("YAML_PATH")
-    MODEL_TYPE = "vggish" #os.getenv("MODEL_TYPE")
-    EXP_NAME = 'prova' #os.getenv("EXP_NAME")
+    ANNOTATIONS_PATH = os.getenv("DATASET_PATH")
+    ANNOTATIONS_PATH2 = os.getenv("DATASET_PATH2")
+    ANNOTATIONS_PATH3 = os.getenv("DATASET_PATH3")
+    YAML_PATH = os.getenv("YAML_PATH")
+    MODEL_TYPE = os.getenv("MODEL_TYPE")
+    EXP_NAME = os.getenv("EXP_NAME")
     # LABELS =
-    ANNOTATIONS_PATH = "/home/isabel/Documents/Projects/git/WP3_T7/dataset_prova"
     sr =32000
     ecoss_list = []
-    for ANNOT_PATH in [ANNOTATIONS_PATH]: # ANNOTATIONS_PATH2, ANNOTATIONS_PATH3
+    for ANNOT_PATH in [ANNOTATIONS_PATH, ANNOTATIONS_PATH2, ANNOTATIONS_PATH3]:
         ecoss_data1 = EcossDataset(ANNOT_PATH, 'data/', 'zeros', sr, 1,"wav")
         ecoss_data1.add_file_column()
         ecoss_data1.fix_onthology(labels=[])
@@ -49,13 +48,14 @@ if __name__ == "__main__":
     
     if MODEL_TYPE.lower() == "passt":
         model = PasstModel(yaml_content=yaml_content,data_path=data_path)
-    # elif MODEL_TYPE.lower() == "effat":
-    #     model = EffAtModel(yaml_content=yaml_content,data_path=data_path)
+    elif MODEL_TYPE.lower() == "effat":
+        model = EffAtModel(yaml_content=yaml_content,data_path=data_path)
     elif MODEL_TYPE.lower() == "vggish":
         model = VggishModel(yaml_content=yaml_content,data_path=data_path, signals=signals, labels=labels, split_info=split_info, sample_rate = sr)
     
     model.plot_processed_data()
     model.train(results_folder = results_folder)
+    
     
         
     
