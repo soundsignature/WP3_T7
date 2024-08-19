@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from models.mn.utils import collapse_dim
-
+# from models.mn.utils import collapse_dim
+from .utils import collapse_dim
 
 class MultiHeadAttentionPooling(nn.Module):
     """Multi-Head Attention as used in PSLA paper (https://arxiv.org/pdf/2102.01243.pdf)

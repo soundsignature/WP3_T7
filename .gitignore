@@ -12,3 +12,4 @@ src/pipeline/__pycache__/
 scripts/runs
 log.log
 runs/
+src/pipeline/effat_repo/models/mn/__pycache__/
