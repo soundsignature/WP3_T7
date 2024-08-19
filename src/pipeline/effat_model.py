@@ -20,6 +20,7 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import torch.optim as optim
 import torch
+import json
 
 from .utils import AugmentMelSTFT, load_yaml, load_data, EffATWrapper, data_loader
 from .effat_repo.models.mn.model import get_model as get_mn
@@ -69,7 +70,7 @@ class EffAtModel():
         train_data, train_label_encoder = load_data(os.path.join(self.data_path, 'train'))
         test_data, _ = load_data(os.path.join(self.data_path, 'test'))
         
-        print(f"The train_encoder is: {train_label_encoder}")
+        logging.info(f"The encoder is: {train_label_encoder}")
 
         # # Generate the dataloaders
         # train_dataloader = data_loader(train_data, self.mel, False, self.yaml["batch_size"])
@@ -165,6 +166,7 @@ class EffAtModel():
 
                 self.plot_results(train_losses, test_losses, train_accs, test_accs)
                 self.save_weights(optimizer)
+                self.save_results(train_label_encoder)
 
             else:
                 epochs_without_improvement += 1
@@ -213,6 +215,16 @@ class EffAtModel():
                 'model_state_dict': self.model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
                 }, self.results_folder / 'model.pth')
+        
+    
+    def save_results(self, label_encoder):
+        # Save the class dictionary
+        with open(self.save_results / 'class_dict.json', 'w') as json_file:
+            json.dump(label_encoder, json_file)
+
+        # Save the results
+        
+
 
 
     def plot_processed_data(self, augment: bool = True):
