@@ -22,7 +22,7 @@ if __name__ == "__main__":
     for ANNOT_PATH in [ANNOTATIONS_PATH, ANNOTATIONS_PATH2, ANNOTATIONS_PATH3]:
         ecoss_data1 = EcossDataset(ANNOT_PATH, 'data/', 'zeros', 32000.0, 1,"wav")
         ecoss_data1.add_file_column()
-        ecoss_data1.fix_onthology(labels=[])
+        ecoss_data1.fix_onthology(labels=['Ship'])
         ecoss_data1.filter_overlapping()
         ecoss_list.append(ecoss_data1)
         
