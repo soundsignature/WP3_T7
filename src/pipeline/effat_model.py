@@ -69,9 +69,11 @@ class EffAtModel():
         train_data, train_label_encoder = load_data(os.path.join(self.data_path, 'train'))
         test_data, _ = load_data(os.path.join(self.data_path, 'test'))
         
-        # Generate the dataloaders
-        train_dataloader = data_loader(train_data, self.mel, self.yaml["batch_size"])
-        test_dataloader = data_loader(test_data, self.mel.eval(), self.yaml["batch_size"], shuffle=False)
+        print(f"The train_encoder is: {train_label_encoder}")
+
+        # # Generate the dataloaders
+        # train_dataloader = data_loader(train_data, self.mel, False, self.yaml["batch_size"])
+        # test_dataloader = data_loader(test_data, self.mel, True, self.yaml["batch_size"], shuffle=False)
         
         # Begin the training
         self.model.train()
@@ -88,18 +90,25 @@ class EffAtModel():
         train_accs, test_accs = [], []
         train_losses, test_losses = [], []
 
-        for i in tqdm(range(self.yaml["n_epochs"])):
+        for i in tqdm(range(self.yaml["n_epochs"]), desc="Epoch"):
+            self.model.train()
             running_loss = 0.0
+            batch_count = 0
             correct = 0
             total = 0
+            
+            # Generating dataloaders every epochs because they are generators (can only be iterated once)
+            train_dataloader = data_loader(train_data, self.mel, False, self.yaml["batch_size"])
+            test_dataloader = data_loader(test_data, self.mel, True, self.yaml["batch_size"], shuffle=False)
 
-            for inputs, labels in train_dataloader:
+            for inputs, labels in tqdm(train_dataloader, desc="Train"):
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
-                
                 optimizer.zero_grad()
                 
                 # Forward pass
-                outputs = self.model(inputs)
+                outputs, _ = self.model(inputs)
+                outputs = outputs.squeeze()
+
                 loss = criterion(outputs, labels)
                 
                 # Backward pass and optimization
@@ -107,35 +116,39 @@ class EffAtModel():
                 optimizer.step()
                 
                 running_loss += loss.item()
+                batch_count += 1
 
                  # Calculate training accuracy
                 _, predicted = torch.max(outputs, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
             
-            epoch_loss = running_loss / len(train_dataloader)
+            epoch_loss = running_loss / batch_count
             train_accuracy = 100 * correct / total
             
             # Evaluation
             self.model.eval()
             test_loss = 0.0
+            batch_count = 0
             correct = 0
             total = 0
             
             with torch.no_grad():
-                for inputs, labels in test_dataloader:
+                for inputs, labels in tqdm(test_dataloader, desc="Test"):
                     inputs, labels = inputs.to(self.device), labels.to(self.device)
-                    outputs = self.model(inputs)
+                    outputs, _ = self.model(inputs)
+                    outputs = outputs.squeeze()
 
                     loss = criterion(outputs, labels)
                     test_loss += loss.item()
+                    batch_count += 1
 
                     _, predicted = torch.max(outputs, 1)
                     total += labels.size(0)
                     correct += (predicted == labels).sum().item()
 
                     
-            avg_test_loss = test_loss / len(test_dataloader)
+            avg_test_loss = test_loss / batch_count
             test_accuracy = 100 * correct / total
             
             train_losses.append(epoch_loss)
@@ -150,15 +163,15 @@ class EffAtModel():
                 epochs_without_improvement = 0  # Reset counter if we see improvement
                 logging.info(f"New best testing accuracy: {best_accuracy}")
 
+                self.plot_results(train_losses, test_losses, train_accs, test_accs)
+                self.save_weights(optimizer)
+
             else:
                 epochs_without_improvement += 1
                 logging.info(f"No improvement for {epochs_without_improvement} epoch(s).")
         
             if epochs_without_improvement >= self.yaml["patience"]:
                 logging.info(f"Early stopping triggered after {i+1} epochs.")
-                
-                self.plot_results(train_losses, test_losses, train_accs, test_accs)
-                self.save_weights(optimizer)
                 
                 break
 
@@ -183,12 +196,14 @@ class EffAtModel():
         plt.figure()
         plt.plot(train_loss, label="Train losses")
         plt.plot(test_loss, label="Test losses")
+        plt.legend()
         plt.savefig(self.results_folder / 'losses.png')
         plt.close()
         
         plt.figure()
         plt.plot(train_acc, label="Train accuracy")
         plt.plot(test_acc, label="Test accuracy")
+        plt.legend()
         plt.savefig(self.results_folder / 'accuracies.png')
         plt.close()
 

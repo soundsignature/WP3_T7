@@ -72,12 +72,13 @@ def load_data(folder: str):
     return data, label_encoder
 
 
-def data_loader(data: list, mel, batch_size: int = 32, shuffle: bool = True):
+def data_loader(data: list, mel, test: bool = False, batch_size: int = 32, shuffle: bool = True):
     """This function creates a manual data loader
 
     Args:
         data (list): The list with the data (tuples path label)
         mel (_type_): The AugmentedMel instance
+        test (bool): If True, the augmentation is disabled.
         batch_size (int, optional): Defaults to 32.
         shuffle (bool, optional): Defaults to True.
 
@@ -86,6 +87,8 @@ def data_loader(data: list, mel, batch_size: int = 32, shuffle: bool = True):
     """
     if shuffle:
         random.shuffle(data)
+    if test:
+        mel.eval()
     batch = []
     for file_path, label in data:
         waveform, sample_rate = torchaudio.load(file_path)
