@@ -15,6 +15,7 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 import torchaudio
+from dotenv import load_dotenv
 
 from utils import AugmentMelSTFT
 
@@ -90,7 +91,9 @@ class EffAtModel():
 
 
 if __name__ == "__main__":
-    model = EffAtModel({'a': 1}, r"C:\Users\Jose Antonio\Desktop\ScriptsProyectos\cinea\wp3-t7\scripts\data")
+    load_dotenv()
+    DATASETS_PATH = os.getenv("DATASETS_PATH")
+    model = EffAtModel({'a': 1}, DATASETS_PATH)
     model.plot_processed_data(augment=False)   
 
             
