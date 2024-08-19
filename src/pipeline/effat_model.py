@@ -17,7 +17,7 @@ from matplotlib import pyplot as plt
 import torchaudio
 from dotenv import load_dotenv
 
-from utils import AugmentMelSTFT
+from .utils import AugmentMelSTFT, load_yaml
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,7 +32,8 @@ class EffAtModel():
     def __init__(self, yaml_content: dict, data_path: str) -> None:
         self.yaml = yaml_content
         self.data_path = data_path
-        self.mel = AugmentMelSTFT(freqm=10, timem=10)
+        self.mel = AugmentMelSTFT(freqm=self.yaml["freqm"],
+                                  timem=self.yaml["freqm"])
         
 
     def train(self, results_folder: str) -> None:
@@ -93,8 +94,10 @@ class EffAtModel():
 if __name__ == "__main__":
     load_dotenv()
     DATASETS_PATH = os.getenv("DATASETS_PATH")
-    model = EffAtModel({'a': 1}, DATASETS_PATH)
-    model.plot_processed_data(augment=False)   
+    YAML_PATH = os.getenv("YAML_PATH")
+
+    model = EffAtModel(load_yaml(YAML_PATH), DATASETS_PATH)
+    model.plot_processed_data(augment=True)   
 
             
 
