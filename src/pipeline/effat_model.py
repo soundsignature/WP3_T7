@@ -15,9 +15,13 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 import torchaudio
-from dotenv import load_dotenv
+from tqdm import tqdm
+from torch.utils.data import Dataset, DataLoader
+import torch.nn as nn
+import torch.optim as optim
+import torch
 
-from .utils import AugmentMelSTFT, load_yaml
+from .utils import AugmentMelSTFT, load_yaml, load_data, EffATWrapper, data_loader
 from .effat_repo.models.mn.model import get_model as get_mn
 from .effat_repo.models.dymn.model import get_model as get_dymn
 
@@ -38,11 +42,18 @@ class EffAtModel():
                                   timem=self.yaml["freqm"])
         self.name_model = name_model
         self.num_classes = num_classes
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
         if "dy" not in self.name_model:
-            self.model = get_mn(pretrained_name=self.name_model, num_classes=num_classes)
+            model = get_mn(pretrained_name=self.name_model)
         else:
-            self.model = get_dymn(pretrained_name=self.name_model, num_classes=num_classes)
+            model = get_dymn(pretrained_name=self.name_model)
         
+        # Using the wrapper to modify the last layer and moving to device
+        model = EffATWrapper(num_classes=num_classes, model=model, freeze=self.yaml["freeze"])
+        model.to(self.device)
+        self.model = model
+
 
     def train(self, results_folder: str) -> None:
         # Saving the configuration.yaml inside the results folder
@@ -54,10 +65,104 @@ class EffAtModel():
             yaml.dump(self.yaml, outfile, default_flow_style=False)
         logging.info(f"Config params:\n {self.yaml}")
 
+        # Load the data on suitable way
+        train_data, train_label_encoder = load_data(os.path.join(self.data_path, 'train'))
+        test_data, _ = load_data(os.path.join(self.data_path, 'test'))
+        
+        # Generate the dataloaders
+        train_dataloader = data_loader(train_data, self.mel, self.yaml["batch_size"])
+        test_dataloader = data_loader(test_data, self.mel.eval(), self.yaml["batch_size"], shuffle=False)
+        
+        # Begin the training
+        self.model.train()
+        if self.yaml["optimizer"].lower() == "adam":
+            optimizer = optim.Adam(self.model.parameters(), lr=self.yaml["lr"])
+        else:
+            optimizer = optim.SGD(self.model.parameters(), lr=self.yaml["lr"])
+        
+        criterion = nn.CrossEntropyLoss()
+        
+        best_accuracy = 0.0
+        epochs_without_improvement = 0
 
+        train_accs, test_accs = [], []
+        train_losses, test_losses = [], []
 
+        for i in tqdm(range(self.yaml["n_epochs"])):
+            running_loss = 0.0
+            correct = 0
+            total = 0
 
+            for inputs, labels in train_dataloader:
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                
+                optimizer.zero_grad()
+                
+                # Forward pass
+                outputs = self.model(inputs)
+                loss = criterion(outputs, labels)
+                
+                # Backward pass and optimization
+                loss.backward()
+                optimizer.step()
+                
+                running_loss += loss.item()
 
+                 # Calculate training accuracy
+                _, predicted = torch.max(outputs, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+            
+            epoch_loss = running_loss / len(train_dataloader)
+            train_accuracy = 100 * correct / total
+            
+            # Evaluation
+            self.model.eval()
+            test_loss = 0.0
+            correct = 0
+            total = 0
+            
+            with torch.no_grad():
+                for inputs, labels in test_dataloader:
+                    inputs, labels = inputs.to(self.device), labels.to(self.device)
+                    outputs = self.model(inputs)
+
+                    loss = criterion(outputs, labels)
+                    test_loss += loss.item()
+
+                    _, predicted = torch.max(outputs, 1)
+                    total += labels.size(0)
+                    correct += (predicted == labels).sum().item()
+
+                    
+            avg_test_loss = test_loss / len(test_dataloader)
+            test_accuracy = 100 * correct / total
+            
+            train_losses.append(epoch_loss)
+            test_losses.append(avg_test_loss)
+            train_accs.append(train_accuracy)
+            test_accs.append(test_accuracy)
+
+            logging.info(f"Epoch {i}: Train loss -> {epoch_loss}, test loss -> {avg_test_loss}, train accuracy -> {train_accuracy}, test accuracy -> {test_accuracy}")
+
+            if test_accuracy > best_accuracy:
+                best_accuracy = test_accuracy
+                epochs_without_improvement = 0  # Reset counter if we see improvement
+                logging.info(f"New best testing accuracy: {best_accuracy}")
+
+            else:
+                epochs_without_improvement += 1
+                logging.info(f"No improvement for {epochs_without_improvement} epoch(s).")
+        
+            if epochs_without_improvement >= self.yaml["patience"]:
+                logging.info(f"Early stopping triggered after {i+1} epochs.")
+                
+                self.plot_results(train_losses, test_losses, train_accs, test_accs)
+                self.save_weights(optimizer)
+                
+                break
+
+            
     def test(self,results_folder):
         pass
 
@@ -66,12 +171,33 @@ class EffAtModel():
         pass
 
 
-    def plot_results(self):
-        pass
+    def plot_results(self, train_loss, test_loss, train_acc, test_acc):
+        """This function is used to load the 
+
+        Args:
+            train_loss (_type_): _description_
+            test_loss (_type_): _description_
+            train_acc (_type_): _description_
+            test_acc (_type_): _description_
+        """
+        plt.figure()
+        plt.plot(train_loss, label="Train losses")
+        plt.plot(test_loss, label="Test losses")
+        plt.savefig(self.results_folder / 'losses.png')
+        plt.close()
+        
+        plt.figure()
+        plt.plot(train_acc, label="Train accuracy")
+        plt.plot(test_acc, label="Test accuracy")
+        plt.savefig(self.results_folder / 'accuracies.png')
+        plt.close()
 
 
-    def save_weights(self):
-        pass
+    def save_weights(self, optimizer):
+        torch.save({
+                'model_state_dict': self.model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict()
+                }, self.results_folder / 'model.pth')
 
 
     def plot_processed_data(self, augment: bool = True):
@@ -99,14 +225,16 @@ class EffAtModel():
             plt.show()
 
 
-if __name__ == "__main__":
-    load_dotenv()
-    DATASETS_PATH = os.getenv("DATASETS_PATH")
-    YAML_PATH = os.getenv("YAML_PATH")
-    NAME_MODEL = os.getenv("NAME_MODEL")
 
-    model = EffAtModel(load_yaml(YAML_PATH), DATASETS_PATH, NAME_MODEL, 10)
-    model.plot_processed_data(augment=True)   
+
+# if __name__ == "__main__":
+#     load_dotenv()
+#     DATASETS_PATH = os.getenv("DATASETS_PATH")
+#     YAML_PATH = os.getenv("YAML_PATH")
+#     NAME_MODEL = os.getenv("NAME_MODEL")
+
+#     model = EffAtModel(load_yaml(YAML_PATH), DATASETS_PATH, NAME_MODEL, 10)
+#     model.plot_processed_data(augment=True)   
 
             
 

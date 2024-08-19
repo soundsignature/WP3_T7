@@ -16,7 +16,7 @@ if __name__ == "__main__":
     YAML_PATH = os.getenv("YAML_PATH")
     MODEL_TYPE = os.getenv("MODEL_TYPE")
     EXP_NAME = os.getenv("EXP_NAME")
-    MODEL_NAME = os.getenv("MODEL_NAME")
+    NAME_MODEL = os.getenv("NAME_MODEL")
     # LABELS =
     ecoss_list = []
     for ANNOT_PATH in [ANNOTATIONS_PATH, ANNOTATIONS_PATH2, ANNOTATIONS_PATH3]:
@@ -40,10 +40,13 @@ if __name__ == "__main__":
 
     results_folder = create_exp_dir(name = EXP_NAME, model=MODEL_TYPE, task= "train")
     
+    num_classes = len(ecoss_data.df["final_source"].unique())
+    print(f"THE NUMBER OF CLASSES IS {num_classes}\n")
+
     if MODEL_TYPE.lower() == "passt":
         model = PasstModel(yaml_content=yaml_content,data_path=data_path)
     elif MODEL_TYPE.lower() == "effat":
-        model = EffAtModel(yaml_content=yaml_content,data_path=data_path, name_model=MODEL_NAME, num_classes=ecoss_data.df["label_source"].unique())
+        model = EffAtModel(yaml_content=yaml_content,data_path=data_path, name_model=NAME_MODEL, num_classes=num_classes)
     elif MODEL_TYPE.lower() == "vggish":
         model = VggishModel(yaml_content=yaml_content,data_path=data_path)
     

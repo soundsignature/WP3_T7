@@ -13,3 +13,5 @@ scripts/runs
 log.log
 runs/
 src/pipeline/effat_repo/models/mn/__pycache__/
+src/pipeline/effat_repo/models/dymn/__pycache__/
+resources/
