@@ -60,7 +60,7 @@ class HelperDataset(Dataset):
             self.label_to_idx = label_to_idx
 
         for cls in self.classes:
-            files = [os.path.join(self.path_data, file) for file in os.listdir(os.path.join(self.path_data, cls))]
+            files = [os.path.join(self.path_data, cls, file) for file in os.listdir(os.path.join(self.path_data, cls))]
             for file in files:
                 data.append((file, self.label_to_idx[cls]))
         
