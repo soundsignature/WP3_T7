@@ -39,7 +39,7 @@ logger.addHandler(handler)
 
 class HelperDataset(Dataset):
     def __init__(self, path_data: str, sr: int, duration: float,
-                 mel, train: bool = True, label_to_idx: bool = False):
+                 mel, train: bool = True, label_to_idx: dict = None):
         self.train = train
         if self.train == True:
             self.path_data = os.path.join(path_data, 'train')
@@ -52,7 +52,7 @@ class HelperDataset(Dataset):
         self.classes = os.listdir(self.path_data)
         data = []
 
-        if label_to_idx == False:
+        if not label_to_idx:
             self.label_to_idx = {cls: i for i, cls in enumerate(self.classes)}
         else:
             self.label_to_idx = label_to_idx
@@ -100,11 +100,11 @@ class EffAtModel():
         dataset_train = HelperDataset(path_data = self.data_path, sr=self.yaml["sr"],
                                       duration=self.yaml["duration"], mel=self.mel,
                                       train=True,
-                                      label_to_idx=False)
+                                      label_to_idx=None)
         dataset_test = HelperDataset(path_data = self.data_path, sr=self.yaml["sr"],
                                      duration=self.yaml["duration"], mel=self.mel,
                                      train=False,
-                                     label_to_idx=False)
+                                     label_to_idx=None)
         
         # Create the WeightedRandomSampler for unbalanced datasets
         train_labels = [label for _, label, _ in dataset_train]
