@@ -270,18 +270,7 @@ class EffAtModel():
             plt.imshow(melspec[0], origin="lower")
             plt.title(av_class)
             plt.show()
-
-
-
-
-# if __name__ == "__main__":
-#     load_dotenv()
-#     DATASETS_PATH = os.getenv("DATASETS_PATH")
-#     YAML_PATH = os.getenv("YAML_PATH")
-#     NAME_MODEL = os.getenv("NAME_MODEL")
-
-#     model = EffAtModel(load_yaml(YAML_PATH), DATASETS_PATH, NAME_MODEL, 10)
-#     model.plot_processed_data(augment=True)   
+ 
 
             
 
