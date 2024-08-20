@@ -25,7 +25,7 @@ from sklearn.metrics import f1_score, confusion_matrix
 from glob import glob
 import seaborn as sns
 
-from .utils import AugmentMelSTFT, EffATWrapper
+from .utils import AugmentMelSTFT, EffATWrapper, process_audio_for_inference
 from .effat_repo.models.mn.model import get_model as get_mn
 from .effat_repo.models.dymn.model import get_model as get_dymn
 
@@ -78,6 +78,14 @@ class HelperDataset(Dataset):
 
 class EffAtModel():
     def __init__(self, yaml_content: dict, data_path: str, name_model: str, num_classes: int) -> None:
+        """The constructor for the EffAtModel class
+
+        Args:
+            yaml_content (dict): The content after reading the config.yaml
+            data_path (str): The path where the train and test folders are located
+            name_model (str): The name of the version of the mobilenets and dynamic mobilenets
+            num_classes (int): The number of classes that the model will have to predict among
+        """
         self.yaml = yaml_content
         self.data_path = data_path
         self.mel = AugmentMelSTFT(freqm=self.yaml["freqm"],
@@ -98,6 +106,8 @@ class EffAtModel():
 
 
     def load_aux_datasets(self):
+        """This function generated the train and test dataloaders
+        """
         dataset_train = HelperDataset(path_data = self.data_path, sr=self.yaml["sr"],
                                       duration=self.yaml["duration"], mel=self.mel,
                                       train=True,
@@ -124,6 +134,11 @@ class EffAtModel():
 
         
     def train(self, results_folder: str) -> None:
+        """Trains the model and save everything into the specified folder
+
+        Args:
+            results_folder (str): The path to the folder.
+        """
         # Saving the configuration.yaml inside the results folder
         self.results_folder = Path(results_folder)
         logging.info(f"Training EffAT")
@@ -257,11 +272,58 @@ class EffAtModel():
 
             
     def test(self, results_folder):
+        """Used when an specific model needs to be tested on a dataset
+
+        Args:
+            results_folder (_type_): _description_
+        """
+        self.results_folder = Path(results_folder)
         pass
 
+    
+    #TODO: TEST THIS LATER, IT IS NOT THE MOST IMPORTANT THING (JUST GOOD TO HAVE)
+    def inference(self, results_folder, path_model: str, path_data: str):
+        """Performs inference on a dataset with a specified model
 
-    def inference(self, results_folder):
-        pass
+        Args:
+            results_folder (_type_): The folder where the results of the inference will be performed
+            path_model (str): The path to the weights of the model to be used
+            path_data (str): The path to the inference_set
+        """
+        self.results_folder = Path(results_folder)
+        self.inference_data_path = path_data
+        # Load the model
+        checkpoint = torch.load(path_model)
+        # Load the state dicts into the model
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.model.eval()
+        self.mel.eval()
+        # Obtain the class mapping
+        class_map_path = path_data.replace('model.pth', 'class_dict.json')
+        with open(class_map_path, 'r') as f:
+            class_map = json.load(f)
+        
+        inference_data = [os.path.join(self.inference_data_path, f) for f in os.listdir(self.inference_data_path)]
+
+        outs, embs = [], []
+        preds = {}
+        with torch.no_grad():
+            for pathfile in inference_data:
+                y, sr = process_audio_for_inference(path_audio=pathfile,
+                                                    desired_sr=self.yaml["sr"],
+                                                    desired_duration=self.yaml["duration"])
+
+                for i in tqdm(range(y.shape[1])):
+                    output, embeddings = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))
+                    outs.append(output)
+                    softmax = nn.Softmax(dim=1)
+                    predictions = torch.argmax(softmax(output)).item()
+                    preds[f"{pathfile}_chunk_{i}"] = predictions
+                    embs.append(embeddings)
+
+        with open(self.results_folder / 'predictions.json', "w") as f:
+            json.dump(preds, f)
+
 
 
     def plot_results(self, train_loss, test_loss, train_acc, test_acc, cm):
@@ -295,7 +357,7 @@ class EffAtModel():
         plt.title("val_result - Confusion Matrix")
         plt.savefig(self.results_folder / 'confusion_matrix.png')
         plt.close()
-        
+
 
     def save_weights(self, optimizer):
         """It is used to save the state dict of the model as well as the optimizer (in case we want to retrain)
