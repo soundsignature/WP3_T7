@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import json
 
 if __name__ == "__main__":
+    load_dotenv()
     YAML_PATH = os.getenv("YAML_PATH")
     MODEL_TYPE = os.getenv("MODEL_TYPE")
     EXP_NAME = os.getenv("EXP_NAME")
@@ -15,7 +16,8 @@ if __name__ == "__main__":
     PATH_MODEL_TEST = os.getenv("PATH_MODEL_TEST")
     INFERENCE_DATA_PATH = os.getenv("INFERENCE_DATA_PATH")
 
-    results_folder = create_exp_dir(name = EXP_NAME, model=MODEL_TYPE, task= "inference")
+
+    results_folder = create_exp_dir(name=EXP_NAME, model=MODEL_TYPE, task="inference")
     yaml_content = load_yaml(YAML_PATH)
 
     if MODEL_TYPE.lower() == "passt":
@@ -29,4 +31,5 @@ if __name__ == "__main__":
         model = VggishModel(yaml_content=yaml_content,data_path=INFERENCE_DATA_PATH)
 
     model.inference(results_folder=results_folder, path_model=PATH_MODEL_TEST, path_data=INFERENCE_DATA_PATH)
+
     

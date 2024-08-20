@@ -360,7 +360,7 @@ class EffAtModel():
         self.model.eval()
         self.mel.eval()
         # Obtain the class mapping
-        class_map_path = path_data.replace('model.pth', 'class_dict.json')
+        class_map_path = path_model.replace('model.pth', 'class_dict.json')
         with open(class_map_path, 'r') as f:
             class_map = json.load(f)
         
