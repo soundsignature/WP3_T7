@@ -46,6 +46,8 @@ class HelperDataset(Dataset):
         else:
             self.path_data = os.path.join(path_data, 'test')
 
+        print(self.path_data)
+
         self.sr = sr
         self.duration = duration
         self.mel = mel
@@ -60,7 +62,7 @@ class HelperDataset(Dataset):
         for cls in self.classes:
             files = [os.path.join(self.path_data, file) for file in os.listdir(os.path.join(self.path_data, cls))]
             for file in files:
-                data.append((file, label_to_idx[cls]))
+                data.append((file, self.label_to_idx[cls]))
         
         self.data = data
     
@@ -124,7 +126,7 @@ class EffAtModel():
         train_dataloader = DataLoader(dataset=dataset_train, sampler=train_sampler, batch_size=self.yaml["batch_size"], shuffle=True)
         test_dataloader = DataLoader(dataset=dataset_test, sampler=test_sampler, batch_size=self.yaml["batch_size"])
 
-        return train_dataloader, test_dataloader
+        return train_dataloader, test_dataloader, dataset_train.label_to_idx
 
         
     def train(self, results_folder: str) -> None:
@@ -158,7 +160,7 @@ class EffAtModel():
         train_accs, test_accs = [], []
         train_losses, test_losses = [], []
         
-        train_dataloader, test_dataloader = self.load_aux_datasets()
+        train_dataloader, test_dataloader, label_encoder = self.load_aux_datasets()
 
         for i in tqdm(range(self.yaml["n_epochs"]), desc="Epoch"):
             self.model.train()
@@ -250,7 +252,7 @@ class EffAtModel():
                            "train_f1": train_f1,
                            "test_f1": test_f1}
                 
-                self.save_results(train_label_encoder, metrics)
+                self.save_results(label_encoder, metrics)
 
             else:
                 epochs_without_improvement += 1
