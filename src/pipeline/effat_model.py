@@ -279,10 +279,12 @@ class EffAtModel():
 
             
     def test(self, results_folder, path_model: str, path_data: str):
-        """Used when an specific model needs to be tested on a dataset
+        """Function used to test a trained model on a generated dataset (train or test folder)
 
         Args:
-            results_folder (_type_): _description_
+            results_folder (_type_): The path where the results will be stored
+            path_model (str): The path to the weights that want to be loaded inside the model
+            path_data (str): The path where the train and test folders are located
         """
         self.results_folder = Path(results_folder)
         self.test_data_path = path_data
