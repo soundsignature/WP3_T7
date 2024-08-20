@@ -16,7 +16,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import torchaudio
 from tqdm import tqdm
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 import torch.nn as nn
 import torch.optim as optim
 import torch
@@ -38,7 +38,8 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 class HelperDataset(Dataset):
-    def __init__(self, path_data: str, sr: int, duration: float, train: bool = True, label_to_idx: bool = False):
+    def __init__(self, path_data: str, sr: int, duration: float,
+                 mel, train: bool = True, label_to_idx: bool = False):
         if self.train == True:
             self.path_data = os.path.join(path_data, 'train')
         else:
@@ -47,11 +48,12 @@ class HelperDataset(Dataset):
         self.train = train
         self.sr = sr
         self.duration = duration
+        self.mel = mel
         self.classes = os.listdir(self.path_data)
         data = []
 
         if label_to_idx == False:
-            self.label_to_idx = [cls: i for i, cls in enumerate(self.classes)]
+            self.label_to_idx = {cls: i for i, cls in enumerate(self.classes)}
         else:
             self.label_to_idx = label_to_idx
 
@@ -70,7 +72,7 @@ class HelperDataset(Dataset):
     def __getitem__(self, index):
         path_audio, label = self.data[index]
         y, sr = torchaudio.load(path_audio)
-        return y, label, path_audio    
+        return self.mel(y), label, path_audio    
 
 
 class EffAtModel():
@@ -102,10 +104,27 @@ class EffAtModel():
                                      duration=self.yaml["duration"], train=False,
                                      label_to_idx=False)
         
-        
+        # Create the WeightedRandomSampler for unbalanced datasets
+        train_labels = [label for _, label, _ in dataset_train]
+        train_class_counts = torch.bincount(train_labels)
+        train_class_weights = 1. / train_class_counts.float()
+
+        test_labels = [label for _, label, _ in dataset_test]
+        test_class_counts = torch.bincount(test_labels)
+        test_class_weights = 1. / test_class_counts.float()
+
+        train_sample_weights = train_class_weights[train_labels]
+        test_sample_weights = test_class_weights[test_labels]
+
+        train_sampler = WeightedRandomSampler(weights=train_sample_weights, num_samples=len(train_sample_weights), replacement=True)
+        test_sampler = WeightedRandomSampler(weights=train_sample_weights, num_samples=len(train_sample_weights), replacement=True)
+
+        train_dataloader = DataLoader(dataset=dataset_train, sampler=train_sampler, batch_size=self.yaml["batch_size"], shuffle=True)
+        test_dataloader = DataLoader(dataset=dataset_test, sampler=test_sampler, batch_size=self.yaml["batch_size"])
+
+        return train_dataloader, test_dataloader
 
         
-
     def train(self, results_folder: str) -> None:
         # Saving the configuration.yaml inside the results folder
         self.results_folder = Path(results_folder)
@@ -136,6 +155,8 @@ class EffAtModel():
 
         train_accs, test_accs = [], []
         train_losses, test_losses = [], []
+        
+        train_dataloader, test_dataloader = self.load_aux_datasets()
 
         for i in tqdm(range(self.yaml["n_epochs"]), desc="Epoch"):
             self.model.train()
@@ -147,8 +168,8 @@ class EffAtModel():
             all_labels = []
             
             # Generating dataloaders every epochs because they are generators (can only be iterated once)
-            train_dataloader = data_loader(train_data, self.mel, False, self.yaml["batch_size"])
-            test_dataloader = data_loader(test_data, self.mel, True, self.yaml["batch_size"], shuffle=False)
+            # train_dataloader = data_loader(train_data, self.mel, False, self.yaml["batch_size"])
+            # test_dataloader = data_loader(test_data, self.mel, True, self.yaml["batch_size"], shuffle=False)
 
             for inputs, labels in tqdm(train_dataloader, desc="Train"):
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
