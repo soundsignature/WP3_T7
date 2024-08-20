@@ -162,7 +162,7 @@ class EffAtModel():
             # train_dataloader = data_loader(train_data, self.mel, False, self.yaml["batch_size"])
             # test_dataloader = data_loader(test_data, self.mel, True, self.yaml["batch_size"], shuffle=False)
 
-            for inputs, labels in tqdm(train_dataloader, desc="Train"):
+            for inputs, labels, _ in tqdm(train_dataloader, desc="Train"):
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
                 optimizer.zero_grad()
                 
@@ -200,7 +200,7 @@ class EffAtModel():
             all_labels = []
             
             with torch.no_grad():
-                for inputs, labels in tqdm(test_dataloader, desc="Test"):
+                for inputs, labels, _ in tqdm(test_dataloader, desc="Test"):
                     inputs, labels = inputs.to(self.device), labels.to(self.device)
                     outputs, _ = self.model(inputs)
                     outputs = outputs.squeeze()
