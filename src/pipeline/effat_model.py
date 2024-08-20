@@ -194,11 +194,11 @@ class EffAtModel():
                 break
 
             
-    def test(self,results_folder):
+    def test(self, results_folder):
         pass
 
 
-    def inference(self,results_folder):
+    def inference(self, results_folder):
         pass
 
 
@@ -206,10 +206,10 @@ class EffAtModel():
         """This function is used to load the 
 
         Args:
-            train_loss (_type_): _description_
-            test_loss (_type_): _description_
-            train_acc (_type_): _description_
-            test_acc (_type_): _description_
+            train_loss (list): A list containing all the training losses
+            test_loss (list): A list containing all the training losses
+            train_acc (list): A list containing all the training losses
+            test_acc (list): A list containing all the training losses
         """
         plt.figure()
         plt.plot(train_loss, label="Train losses")
@@ -227,6 +227,11 @@ class EffAtModel():
 
 
     def save_weights(self, optimizer):
+        """It is used to save the state dict of the model as well as the optimizer (in case we want to retrain)
+
+        Args:
+            optimizer (_type_): The optimizer used in the training (available Adam or SGD)
+        """
         torch.save({
                 'model_state_dict': self.model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
@@ -234,6 +239,12 @@ class EffAtModel():
         
     
     def save_results(self, label_encoder, metrics):
+        """It generates the class_dict.json and the metrics.json files
+
+        Args:
+            label_encoder (dict): Contains the mapping of the classes
+            metrics (dict): Contains the metrics to be saved
+        """
         # Save the class dictionary
         with open(self.results_folder / 'class_dict.json', 'w') as json_file:
             json.dump(label_encoder, json_file)
@@ -243,12 +254,12 @@ class EffAtModel():
             json.dump(metrics, json_file)
 
 
-
-
-
-
     def plot_processed_data(self, augment: bool = True):
         """This function will plot a random mel spectrogram per class available for the training
+        
+
+        Args:
+            augment (bool, optional): If se to true, the mel will be augmented. Defaults to True.
         """
         path_classes = os.path.join(self.data_path, "train")
         available_classes = os.listdir(path_classes)
