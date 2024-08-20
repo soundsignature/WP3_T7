@@ -46,8 +46,6 @@ class HelperDataset(Dataset):
         else:
             self.path_data = os.path.join(path_data, 'test')
 
-        print(self.path_data)
-
         self.sr = sr
         self.duration = duration
         self.mel = mel
@@ -107,24 +105,19 @@ class EffAtModel():
                                      duration=self.yaml["duration"], mel=self.mel,
                                      train=False,
                                      label_to_idx=None)
-        
+
         # Create the WeightedRandomSampler for unbalanced datasets
         train_labels = [label for _, label, _ in dataset_train]
-        train_class_counts = torch.bincount(train_labels)
-        train_class_weights = 1. / train_class_counts.float()
+        class_counts = np.bincount(train_labels)
+        class_weights = 1. / class_counts
+        samples_weights = class_weights[train_labels]
+        samples_weights = torch.FloatTensor(samples_weights)
+        class_weights = torch.FloatTensor(class_weights).to(self.device)
 
-        test_labels = [label for _, label, _ in dataset_test]
-        test_class_counts = torch.bincount(test_labels)
-        test_class_weights = 1. / test_class_counts.float()
-
-        train_sample_weights = train_class_weights[train_labels]
-        test_sample_weights = test_class_weights[test_labels]
-
-        train_sampler = WeightedRandomSampler(weights=train_sample_weights, num_samples=len(train_sample_weights), replacement=True)
-        test_sampler = WeightedRandomSampler(weights=train_sample_weights, num_samples=len(train_sample_weights), replacement=True)
-
-        train_dataloader = DataLoader(dataset=dataset_train, sampler=train_sampler, batch_size=self.yaml["batch_size"], shuffle=True)
-        test_dataloader = DataLoader(dataset=dataset_test, sampler=test_sampler, batch_size=self.yaml["batch_size"])
+        train_sampler = WeightedRandomSampler(weights=samples_weights, num_samples=len(samples_weights), replacement=True)
+        
+        train_dataloader = DataLoader(dataset=dataset_train, sampler=train_sampler, batch_size=self.yaml["batch_size"])
+        test_dataloader = DataLoader(dataset=dataset_test, batch_size=self.yaml["batch_size"])  # Not doing weighted samples for testing
 
         return train_dataloader, test_dataloader, dataset_train.label_to_idx
 
@@ -138,12 +131,6 @@ class EffAtModel():
         with open(str(output_config_path), 'w') as outfile:
             yaml.dump(self.yaml, outfile, default_flow_style=False)
         logging.info(f"Config params:\n {self.yaml}")
-
-        # Load the data on suitable way
-        # train_data, train_label_encoder = load_data(os.path.join(self.data_path, 'train'))
-        # test_data, _ = load_data(os.path.join(self.data_path, 'test'))
-        
-        # logging.info(f"The encoder is: {train_label_encoder}")
 
         # Begin the training
         self.model.train()
