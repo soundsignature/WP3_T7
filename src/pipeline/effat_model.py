@@ -40,12 +40,12 @@ logger.addHandler(handler)
 class HelperDataset(Dataset):
     def __init__(self, path_data: str, sr: int, duration: float,
                  mel, train: bool = True, label_to_idx: bool = False):
+        self.train = train
         if self.train == True:
             self.path_data = os.path.join(path_data, 'train')
         else:
             self.path_data = os.path.join(path_data, 'test')
 
-        self.train = train
         self.sr = sr
         self.duration = duration
         self.mel = mel
@@ -98,10 +98,12 @@ class EffAtModel():
 
     def load_aux_datasets(self):
         dataset_train = HelperDataset(path_data = self.data_path, sr=self.yaml["sr"],
-                                      duration=self.yaml["duration"], train=True,
+                                      duration=self.yaml["duration"], mel=self.mel,
+                                      train=True,
                                       label_to_idx=False)
         dataset_test = HelperDataset(path_data = self.data_path, sr=self.yaml["sr"],
-                                     duration=self.yaml["duration"], train=False,
+                                     duration=self.yaml["duration"], mel=self.mel,
+                                     train=False,
                                      label_to_idx=False)
         
         # Create the WeightedRandomSampler for unbalanced datasets
@@ -136,10 +138,10 @@ class EffAtModel():
         logging.info(f"Config params:\n {self.yaml}")
 
         # Load the data on suitable way
-        train_data, train_label_encoder = load_data(os.path.join(self.data_path, 'train'))
-        test_data, _ = load_data(os.path.join(self.data_path, 'test'))
+        # train_data, train_label_encoder = load_data(os.path.join(self.data_path, 'train'))
+        # test_data, _ = load_data(os.path.join(self.data_path, 'test'))
         
-        logging.info(f"The encoder is: {train_label_encoder}")
+        # logging.info(f"The encoder is: {train_label_encoder}")
 
         # Begin the training
         self.model.train()
