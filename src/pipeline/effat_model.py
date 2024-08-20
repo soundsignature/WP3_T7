@@ -338,11 +338,6 @@ class EffAtModel():
         self.plot_cm(cm)
         
 
-
-
-
-    
-    #TODO: TEST THIS LATER, IT IS NOT THE MOST IMPORTANT THING FOR THE PIPELINE (JUST GOOD TO HAVE)
     def inference(self, results_folder, path_model: str, path_data: str):
         """Performs inference on a dataset with a specified model
 
