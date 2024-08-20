@@ -292,10 +292,10 @@ class EffAtModel():
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.eval()
         self.mel.eval()
-        logger.info(f"TWeights succesfully loaded into the model")
+        logger.info(f"Weights succesfully loaded into the model")
 
         # Get the mapping
-        class_map_path = path_data.replace('model.pth', 'class_dict.json')
+        class_map_path = path_model.replace('model.pth', 'class_dict.json')
         with open(class_map_path, 'r') as f:
             class_map = json.load(f)
 
@@ -303,7 +303,7 @@ class EffAtModel():
 
         # Prepare the dataset
         test_dataset = HelperDataset(path_data=path_data, sr=self.yaml["sr"],
-                                     duration=self.yaml["duration"], train=self.yaml["test_on_train"], label_to_idx=class_map)  
+                                     duration=self.yaml["duration"], mel=self.mel, train=self.yaml["test_on_train"], label_to_idx=class_map)  
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=self.yaml["batch_size"])
 
         logger.info("Dataset succesfully generated")
@@ -409,7 +409,7 @@ class EffAtModel():
         plt.close()
 
 
-    def plot_cm(cm):
+    def plot_cm(self, cm):
         """Function to plot the confusion matrix 
 
         Args:

@@ -18,6 +18,7 @@ if __name__ == "__main__":
     EXP_NAME = os.getenv("EXP_NAME")
     NAME_MODEL = os.getenv("NAME_MODEL")
     PATH_MODEL_TEST = os.getenv("PATH_MODEL_TEST")
+
     ecoss_list = []
     for ANNOT_PATH in [ANNOTATIONS_PATH, ANNOTATIONS_PATH2, ANNOTATIONS_PATH3]:
         ecoss_data1 = EcossDataset(ANNOT_PATH, 'data/', 'zeros', 32000.0, 1,"wav")
