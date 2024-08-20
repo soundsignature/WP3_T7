@@ -22,6 +22,7 @@ import torch.optim as optim
 import torch
 import json
 from sklearn.metrics import f1_score
+from glob import glob
 
 from .utils import AugmentMelSTFT, load_yaml, load_data, EffATWrapper, data_loader
 from .effat_repo.models.mn.model import get_model as get_mn
@@ -35,6 +36,42 @@ handler = logging.FileHandler("log.log")
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
+
+class HelperDataset(Dataset):
+    def __init__(self, path_data: str, sr: int, duration: float, train: bool = True, label_to_idx: bool = False):
+        if self.train == True:
+            self.path_data = os.path.join(path_data, 'train')
+        else:
+            self.path_data = os.path.join(path_data, 'test')
+
+        self.train = train
+        self.sr = sr
+        self.duration = duration
+        self.classes = os.listdir(self.path_data)
+        data = []
+
+        if label_to_idx == False:
+            self.label_to_idx = [cls: i for i, cls in enumerate(self.classes)]
+        else:
+            self.label_to_idx = label_to_idx
+
+        for cls in self.classes:
+            files = [os.path.join(self.path_data, file) for file in os.listdir(os.path.join(self.path_data, cls))]
+            for file in files:
+                data.append((file, label_to_idx[cls]))
+        
+        self.data = data
+    
+
+    def __len__(self):
+        return len(self.data)
+
+
+    def __getitem__(self, index):
+        path_audio, label = self.data[index]
+        y, sr = torchaudio.load(path_audio)
+        return y, label, path_audio    
+
 
 class EffAtModel():
     def __init__(self, yaml_content: dict, data_path: str, name_model: str, num_classes: int) -> None:
@@ -57,6 +94,18 @@ class EffAtModel():
         self.model = model
 
 
+    def load_aux_datasets(self):
+        dataset_train = HelperDataset(path_data = self.data_path, sr=self.yaml["sr"],
+                                      duration=self.yaml["duration"], train=True,
+                                      label_to_idx=False)
+        dataset_test = HelperDataset(path_data = self.data_path, sr=self.yaml["sr"],
+                                     duration=self.yaml["duration"], train=False,
+                                     label_to_idx=False)
+        
+        
+
+        
+
     def train(self, results_folder: str) -> None:
         # Saving the configuration.yaml inside the results folder
         self.results_folder = Path(results_folder)
@@ -73,10 +122,6 @@ class EffAtModel():
         
         logging.info(f"The encoder is: {train_label_encoder}")
 
-        # # Generate the dataloaders
-        # train_dataloader = data_loader(train_data, self.mel, False, self.yaml["batch_size"])
-        # test_dataloader = data_loader(test_data, self.mel, True, self.yaml["batch_size"], shuffle=False)
-        
         # Begin the training
         self.model.train()
         if self.yaml["optimizer"].lower() == "adam":
