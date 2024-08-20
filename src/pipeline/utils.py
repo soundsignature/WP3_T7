@@ -86,13 +86,6 @@ def process_audio_for_inference(path_audio: str, desired_sr: float, desired_dura
 
     return y, sr
 
-    
-        
-
-
-
-
-
 
 class AugmentMelSTFT(nn.Module):
     """ This class is used in order to generate the mel spectrograms for the EffAT and PaSST models
