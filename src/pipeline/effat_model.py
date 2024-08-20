@@ -21,8 +21,9 @@ import torch.nn as nn
 import torch.optim as optim
 import torch
 import json
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, confusion_matrix
 from glob import glob
+import seaborn as sns
 
 from .utils import AugmentMelSTFT, EffATWrapper
 from .effat_repo.models.mn.model import get_model as get_mn
@@ -232,7 +233,11 @@ class EffAtModel():
                 epochs_without_improvement = 0  # Reset counter if we see improvement
                 logging.info(f"New best testing accuracy: {best_accuracy}")
 
-                self.plot_results(train_losses, test_losses, train_accs, test_accs)
+                # Compute the confusion matrix in the testing dataset (each time it saves another better model)
+                cm = confusion_matrix(all_labels, all_preds)
+
+                # Saving weights, results and curves
+                self.plot_results(train_losses, test_losses, train_accs, test_accs, cm)
                 self.save_weights(optimizer)
                 metrics = {"train_acc": train_accuracy,
                            "test_acc": test_accuracy,
@@ -259,7 +264,7 @@ class EffAtModel():
         pass
 
 
-    def plot_results(self, train_loss, test_loss, train_acc, test_acc):
+    def plot_results(self, train_loss, test_loss, train_acc, test_acc, cm):
         """This function is used to load the 
 
         Args:
@@ -267,6 +272,7 @@ class EffAtModel():
             test_loss (list): A list containing all the training losses
             train_acc (list): A list containing all the training losses
             test_acc (list): A list containing all the training losses
+            cm: The sklearn confusion matrix
         """
         plt.figure()
         plt.plot(train_loss, label="Train losses")
@@ -282,6 +288,14 @@ class EffAtModel():
         plt.savefig(self.results_folder / 'accuracies.png')
         plt.close()
 
+        plt.figure()
+        sns.heatmap(cm, annot=True, cmap='Blues', fmt='d')
+        plt.ylabel("True")
+        plt.xlabel("Predicted")
+        plt.title("val_result - Confusion Matrix")
+        plt.savefig(self.results_folder / 'confusion_matrix.png')
+        plt.close()
+        
 
     def save_weights(self, optimizer):
         """It is used to save the state dict of the model as well as the optimizer (in case we want to retrain)
