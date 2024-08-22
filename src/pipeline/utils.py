@@ -77,12 +77,12 @@ def process_audio_for_inference(path_audio: str, desired_sr: float, desired_dura
     length = int(desired_duration * desired_sr)
     if y.size(1) < length:
         y = torch.nn.functional.pad(y, (0, length - y.size(1)))
-        y.unsqueeze(0)
+        y = y.unsqueeze(0)
     elif y.size(1) > length:
         chunk_size = desired_sr * desired_duration
         y = y.unfold(dimension=1, size=chunk_size, step=chunk_size)
     else:
-        y.unsqueeze(0)
+        y = y.unsqueeze(0)
 
     return y, sr
 

@@ -358,7 +358,8 @@ class EffAtModel():
         class_map_path = path_model.replace('model.pth', 'class_dict.json')
         with open(class_map_path, 'r') as f:
             class_map = json.load(f)
-        
+        inverse_class_map = {v: k for k, v in class_map.items()}
+
         inference_data = [os.path.join(self.inference_data_path, f) for f in os.listdir(self.inference_data_path)]
 
         outs, embs = [], []
@@ -374,7 +375,7 @@ class EffAtModel():
                     outs.append(output)
                     softmax = nn.Softmax(dim=1)
                     predictions = torch.argmax(softmax(output)).item()
-                    preds[f"{pathfile}_chunk_{i}"] = predictions
+                    preds[f"{pathfile}_chunk_{i}"] = inverse_class_map[predictions]
                     embs.append(embeddings)
 
         with open(self.results_folder / 'predictions.json', "w") as f:
