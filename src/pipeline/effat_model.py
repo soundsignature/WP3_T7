@@ -339,7 +339,7 @@ class EffAtModel():
         
 
     def inference(self, results_folder, path_model: str, path_data: str):
-        """Performs inference on a dataset with a specified model
+        """Performs inference on a file
 
         Args:
             results_folder (_type_): The folder where the results of the inference will be performed
@@ -347,7 +347,6 @@ class EffAtModel():
             path_data (str): The path to the inference_set
         """
         self.results_folder = Path(results_folder)
-        self.inference_data_path = path_data
         # Load the model
         checkpoint = torch.load(path_model)
         # Load the state dicts into the model
@@ -360,23 +359,20 @@ class EffAtModel():
             class_map = json.load(f)
         inverse_class_map = {v: k for k, v in class_map.items()}
 
-        inference_data = [os.path.join(self.inference_data_path, f) for f in os.listdir(self.inference_data_path)]
-
         outs, embs = [], []
         preds = {}
         with torch.no_grad():
-            for pathfile in inference_data:
-                y, sr = process_audio_for_inference(path_audio=pathfile,
-                                                    desired_sr=self.yaml["sr"],
-                                                    desired_duration=self.yaml["duration"])
+            y, sr = process_audio_for_inference(path_audio=path_data,
+                                                desired_sr=self.yaml["sr"],
+                                                desired_duration=self.yaml["duration"])
 
-                for i in tqdm(range(y.shape[1])):
-                    output, embeddings = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))
-                    outs.append(output)
-                    softmax = nn.Softmax(dim=1)
-                    predictions = torch.argmax(softmax(output)).item()
-                    preds[f"{pathfile}_chunk_{i}"] = inverse_class_map[predictions]
-                    embs.append(embeddings)
+            for i in tqdm(range(y.shape[1])):
+                output, embeddings = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))  # Saving embeddings but not necessary
+                outs.append(output)
+                softmax = nn.Softmax(dim=1)
+                predictions = torch.argmax(softmax(output)).item()
+                preds[f"chunk_{i}"] = inverse_class_map[predictions]
+                embs.append(embeddings)
 
         with open(self.results_folder / 'predictions.json', "w") as f:
             json.dump(preds, f)
