@@ -27,8 +27,12 @@ import seaborn as sns
 import pandas as pd
 
 from .utils import AugmentMelSTFT, EffATWrapper, process_audio_for_inference
-from .effat_repo.models.mn.model import get_model as get_mn
-from .effat_repo.models.dymn.model import get_model as get_dymn
+from models.effat_repo.models.mn.model import get_model as get_mn
+from models.effat_repo.models.dymn.model import get_model as get_dymn
+
+
+# from .effat_repo.models.mn.model import get_model as get_mn
+# from .effat_repo.models.dymn.model import get_model as get_dymn
 
 logging.basicConfig(level=logging.INFO)
 
