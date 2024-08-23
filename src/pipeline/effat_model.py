@@ -354,7 +354,7 @@ class EffAtModel():
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.eval()
         self.mel.eval()
-        # Obtain the class mapping
+        # Obtain the class mapping 
         class_map_path = path_model.replace('model.pth', 'class_dict.json')
         with open(class_map_path, 'r') as f:
             class_map = json.load(f)
