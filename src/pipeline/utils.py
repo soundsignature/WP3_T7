@@ -10,6 +10,7 @@ import os
 import torch.nn as nn
 import torchaudio
 import torch
+import numpy as np
 
 def load_yaml(yaml_path: str) -> dict:
     """Function used to load the yaml content. Useful for reading configuration files or any other data stored in YAML format.
@@ -51,6 +52,42 @@ def create_exp_dir(name: str, model: str, task: str) -> str:
     exp_path.mkdir(exist_ok=True)
     return str(exp_path)
 
+def process_audio_for_inference(path_audio: str, desired_sr: float, desired_duration: float):
+    """It processes audios for inference purposes
+
+    Args:
+        path_audio (str): Path to the audio that needs to be processed
+        desired_sr (float): The desired sampling rate
+        desired_duration (float): The desired duration
+
+    Raises:
+        ValueError: In case the sampling rate of a signal is lower than the desired one.
+
+    Returns:
+        torch.Tensor: The processed signal
+    """
+    y, sr = torchaudio.load(path_audio)
+    resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=desired_sr)
+    
+    # Check sampling rate
+    if sr < desired_sr:
+        raise ValueError(f"Sampling rate of {sr} Hz is lower than the desired sampling rate of {desired_sr} Hz.")
+    if sr > desired_sr:
+        y = resampler(y)
+        sr = desired_sr 
+
+    # Check length
+    length = int(desired_duration * desired_sr)
+    if y.size(1) < length:
+        y = torch.nn.functional.pad(y, (0, length - y.size(1)))
+        y = y.unsqueeze(0)
+    elif y.size(1) > length:
+        chunk_size = desired_sr * desired_duration
+        y = y.unfold(dimension=1, size=int(chunk_size), step=int(chunk_size))
+    else:
+        y = y.unsqueeze(0)
+
+    return y, sr
 
 def save_confusion_matrix(unique_labels, exp_folder, true_labels, predicted_labels, title = "confusion_matrix"):
     """
@@ -75,7 +112,7 @@ def save_confusion_matrix(unique_labels, exp_folder, true_labels, predicted_labe
     plt.ylabel('True')
     plt.title(f'{title} - Confusion Matrix')
     plt.tight_layout()
-    plt.savefig(os.path.join(exp_folder, f'{title}.svg'))
+    plt.savefig(os.path.join(exp_folder, f'{title}.png'))
 
     cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
     plt.figure(figsize=(10, 10))
@@ -85,7 +122,7 @@ def save_confusion_matrix(unique_labels, exp_folder, true_labels, predicted_labe
     plt.ylabel('True')
     plt.title(f'{title} - Normalized Confusion Matrix')
     plt.tight_layout()
-    plt.savefig(os.path.join(exp_folder, f'{title}-normalized.svg'))
+    plt.savefig(os.path.join(exp_folder, f'{title}-normalized.png'))
     plt.close()
 
 
