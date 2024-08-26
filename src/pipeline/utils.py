@@ -6,7 +6,8 @@ import os
 import pandas as pd
 import numpy as np
 import json
-
+import librosa
+import soundfile as sf
 import yaml
 from pathlib import Path
 import torch.nn as nn
@@ -67,6 +68,40 @@ def flatten(array):
     flatten_array = array.flatten()
     return flatten_array
 
+def process_data_for_inference(path_audio: str, desired_sr: float, desired_duration: float):
+    """
+    Process a single signal by resampling and segmenting or padding it.
+
+    Parameters:
+    signal (np.array): Signal array.
+    original_sr (float): Original sampling rate of the signal.
+
+    Returns:
+    list: List of processed segments.
+    """
+    signal, original_sr = sf.read(path_audio)
+    # Resample the signal if the original sampling rate is different from the target
+    if original_sr != desired_sr:
+        signal = librosa.resample(y=signal, orig_sr=original_sr, target_sr=desired_sr)
+        
+    # Pad the signal if it is shorter than the segment length   
+    segment_length = (desired_duration*desired_sr)
+    if len(signal) < segment_length:
+        delta = segment_length - len(signal)
+        delta_start = delta // 2
+        delta_end = delta_start if delta%2 == 0 else (delta // 2) + 1 
+        segments = np.pad(signal, (delta_start, delta_end), 'constant', constant_values=(0, 0))
+        # Segment the signal if it is longer or equal to the segment length
+    elif len(signal) >= segment_length:
+        segments = []
+        # Calculate the number of full segments in the signal
+        n_segments = len(signal)//(segment_length)
+        # Extract each segment and append to the list
+        for i in range(n_segments):
+            segment = signal[(i*segment_length):((i+1)*segment_length)]
+            segments.append(segment)
+        
+    return segments
 
 class AugmentMelSTFT(nn.Module):
     """ This class is used in order to generate the mel spectrograms for the EffAT and PaSST models
@@ -256,3 +291,5 @@ class ValidationPlot:
 
     def save_plot(self, plot, saving_folder):
         plot.savefig(os.path.join(saving_folder, "TrainigCurves.png"))
+        
+     

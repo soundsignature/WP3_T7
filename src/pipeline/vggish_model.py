@@ -38,7 +38,6 @@ class VggishModel():
         self.labels = labels
         self.split_info = split_info
         self.data_path = data_path
-        # self.train_data, self.test_data = self.get_train_test_data(X = signals, Y = labels, split = split_info, data_path = data_path)
         self.features_extractor = VggishFeaturesExtractor(sample_rate = self.sample_rate)
         self.model  = SVC()
 
@@ -101,14 +100,25 @@ class VggishModel():
         self.plot_results(set = 'test', saving_folder = results_folder, y_true = Y, y_pred = Y_pred)
         
 
-    def inference(self,x,results_folder):
+    def inference(self,path_data,results_folder):
+        sr = self.yaml.get('desired_sr')
+        duration = self.yaml.get('desired_duration')
+        X = process_data_for_inference(path_audio= path_data, desired_sr=sr, desired_duration=duration)
         if self.yaml.get('model_path'):
             self.model = joblib.load(self.yaml.get('model_path'))
         else:
             print('Error. model_path missing in the yaml configuration file')
             exit()
-        y = self.model.predict(x)
-        return y
+        predictions = []
+        for x in X:
+            y = self.model.predict(x)
+            labels_mapping_path = self.yaml.get('labels_mapping_path')
+            with open(labels_mapping_path, 'r') as file:
+                label_mapping = json.load(file)
+                y= np.array([label_mapping[str(label)] for label in y])
+                predictions.append(y)
+        with open(os.path.join(results_folder, 'predictions.json'), "w") as f:
+            json.dump(predictions, f)
 
 
     def plot_results(self, set, saving_folder, y_true, y_pred, gridsearch = None):
