@@ -2,28 +2,23 @@
 name = "pipeline"
 version = "0.1.0"
 description = ""
-authors = ["Jose Antonio <joseantoniogarcia@ctnaval.com>"]
+authors = ["carozzoisabel <isabel.carozzo@onairweb.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-pandas = "^2.2.2"
+
+[tool.poetry.group.dev.dependencies]
 matplotlib = "^3.9.1"
-python-dotenv = "^1.0.1"
 numpy = "<2.0.0"
-librosa = "^0.10.2.post1"
+librosa = "^0.10.0.post2"
 soundfile = "^0.12.1"
-mutagen = "^1.47.0"
 tqdm = "^4.66.4"
-pyyaml = "^6.0.1"
-torch = {version = "^2.4.0+cu118", source = "pytorch_gpu"}
-torchaudio = {version = "^2.4.0+cu118", source = "pytorch_gpu"}
-
-
-[[tool.poetry.source]]
-name = "pytorch_gpu"
-url = "https://download.pytorch.org/whl/cu118"
-priority = "explicit"
+scikit-learn = "^1.3.0"
+logging = "^0.4.9.6"
+resampy = "^0.4.2"
+tensorflow = "^2.14.0"
+tf-slim = "^1.1.0"
 
 [build-system]
 requires = ["poetry-core"]
