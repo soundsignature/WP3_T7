@@ -8,9 +8,8 @@ Created on Fri Aug 02 10:10:48 2024
     Vggish + SVM model """
     
 from src.pipeline.utils import *
-from src.tools.confusion_matrix import *
-from src.tools.training_curves import *
 import json
+from tqdm import tqdm
 import os
 from sklearn.svm import SVC
 import joblib
@@ -102,13 +101,13 @@ class VggishModel():
         self.plot_results(set = 'test', saving_folder = results_folder, y_true = Y, y_pred = Y_pred)
         
 
-    def inference(self,x):
+    def inference(self,x,results_folder):
         if self.yaml.get('model_path'):
             self.model = joblib.load(self.yaml.get('model_path'))
         else:
             print('Error. model_path missing in the yaml configuration file')
             exit()
-        y = self.model.predict_proba(x)
+        y = self.model.predict(x)
         return y
 
 
@@ -271,7 +270,7 @@ class VggishModel():
         list, list: list of x and y ready to be fed to the classificator
         """
         X, Y = [], []
-        for x,y in data:
+        for x,y in tqdm(data, total = len(data), desc = "Features extraction"):
             X.append(self.get_features(x))
             Y.append(y)
         Y = self.get_labels_encoding(Y, saving_folder)
