@@ -14,7 +14,7 @@ import urllib.parse
 from .utils import cnn_out_size
 from .block_types import InvertedResidualConfig, InvertedResidual
 from .attention_pooling import MultiHeadAttentionPooling
-from pipeline.effat_repo.helpers.utils import NAME_TO_WIDTH
+from models.effat_repo.helpers.utils import NAME_TO_WIDTH
 
 
 # Adapted version of MobileNetV3 pytorch implementation
