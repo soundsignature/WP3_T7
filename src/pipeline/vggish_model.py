@@ -107,7 +107,7 @@ class VggishModel():
         if self.yaml.get('model_path'):
             self.model = joblib.load(self.yaml.get('model_path'))
         else:
-            print('Error. model_path missing in the yaml configuration file')
+            logger.error('Error. model_path missing in the yaml configuration file')
             exit()
         predictions = []
         for x in X:

@@ -13,6 +13,17 @@ from pathlib import Path
 import torch.nn as nn
 import torchaudio
 import torch
+import logging
+
+UNWANTED_LABELS = ["Undefined"]
+logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger(__name__)
+
+handler = logging.FileHandler("log.log")
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 def load_yaml(yaml_path: str) -> dict:
     """Function used to load the yaml content. Useful for reading configuration files or any other data stored in YAML format.
@@ -28,7 +39,7 @@ def load_yaml(yaml_path: str) -> dict:
             yaml_content = yaml.safe_load(file)
             return yaml_content
         except yaml.YAMLError as e:
-            print(e)
+            logger.error(e)
             return None
         
 
@@ -118,7 +129,7 @@ class AugmentMelSTFT(nn.Module):
         self.fmin = fmin
         if fmax is None:
             fmax = sr // 2 - fmax_aug_range // 2
-            print(f"Warning: FMAX is None setting to {fmax} ")
+            logger.warning(f"Warning: FMAX is None setting to {fmax} ")
         self.fmax = fmax
         self.hopsize = hopsize
         self.register_buffer('window',
