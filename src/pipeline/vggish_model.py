@@ -31,7 +31,7 @@ logger.addHandler(handler)
 
 
 class VggishModel():
-    def __init__(self, yaml_content: dict, signals: list, labels:list, split_info:list, sample_rate:float, data_path: str = None) -> None:
+    def __init__(self, yaml_content: dict, signals: list = None, labels:list = None, split_info:list = None, sample_rate:float = None, data_path: str = None) -> None:
         self.yaml = yaml_content
         self.sample_rate=sample_rate
         self.signals = signals
