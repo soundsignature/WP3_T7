@@ -16,4 +16,3 @@ runs/
 *.csv
 __pycache__
 *.log
-*.yaml
