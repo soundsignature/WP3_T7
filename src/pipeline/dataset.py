@@ -118,20 +118,25 @@ class EcossDataset:
         """
         indexes_delete = []
         for i, row in self.df.iterrows():
-            if row["file"].endswith('.wav'):
-                with wave.open(row["file"], 'rb') as wav_file:
-                    sr = wav_file.getframerate()
+            if os.path.isfile(row["file"]):
+                if row["file"].endswith('.wav'):
+                    with wave.open(row["file"], 'rb') as wav_file:
+                        sr = wav_file.getframerate()
+                        if sr < self.sr:
+                            indexes_delete.append(i)
+                            # print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
+                            logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
+                elif row["file"].endswith('.flac'):
+                    audio = FLAC(row["file"])
+                    sr = audio.info.sample_rate
                     if sr < self.sr:
                         indexes_delete.append(i)
                         logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
-            elif row["file"].endswith('.flac'):
-                audio = FLAC(row["file"])
-                sr = audio.info.sample_rate
-                if sr < self.sr:
-                    indexes_delete.append(i)
-                    logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
+                else:
+                    raise ValueError("Unsupported file format. Only WAV and FLAC are supported.")
             else:
-                raise ValueError("Unsupported file format. Only WAV and FLAC are supported.")
+                indexes_delete.append(i)
+                logger.info(f"File {row['file']} in the folder is missing")
         
         self.df.drop(indexes_delete, inplace=True)
         self.df.reset_index(drop=True, inplace=True)
