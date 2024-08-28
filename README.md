@@ -20,3 +20,8 @@
 Two ways:
 1. Write "poetry shell". This will activate the venv and you will be able to navigate to your script and do "python X.py". In order to exit this shell write "exit".
 2. Activate the venv manually.
+
+
+## VGGISH POETRY
+If you use linux, then you dont need the package tensorflow-intel because it will raise an error. Install everything like this: "poetry install --without intel".
+If you use windows, then you will need the package tensorflow-intel because otherwise you will experience errors. Install everything like this: "poetry install --with intel".
