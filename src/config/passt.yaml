@@ -8,8 +8,8 @@ sr : 32000.0
 win_length : 800
 hopsize : 320
 n_fft : 1024
-freqm : 48
-timem : 192
+freqm : 5
+timem : 19
 htk : False
 fmin : 0.0
 fmax : null
