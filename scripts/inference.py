@@ -1,9 +1,15 @@
-from pipeline.passt_model import PasstModel
-from pipeline.effat_model import EffAtModel
-from pipeline.vggish_model import VggishModel
-from pipeline.dataset import EcossDataset
-from pipeline.utils import create_exp_dir, load_yaml
+import sys
 import os
+
+PROJECT_FOLDER = os.path.dirname(__file__).replace('/src', '/pipeline')
+PARENT_PROJECT_FOLDER = os.path.dirname(PROJECT_FOLDER)
+sys.path.append(PARENT_PROJECT_FOLDER)
+
+from src.pipeline.passt_model import PasstModel
+from src.pipeline.effat_model import EffAtModel
+from src.pipeline.vggish_model import VggishModel
+from src.pipeline.dataset import EcossDataset
+from src.pipeline.utils import create_exp_dir, load_yaml
 from dotenv import load_dotenv
 import json
 

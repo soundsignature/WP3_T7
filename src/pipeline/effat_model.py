@@ -100,7 +100,16 @@ class EffAtModel():
         self.yaml = yaml_content
         self.data_path = data_path
         self.mel = AugmentMelSTFT(freqm=self.yaml["freqm"],
-                                  timem=self.yaml["freqm"])
+                                  timem=self.yaml["freqm"],
+                                  n_mels=self.yaml["n_mels"],
+                                  sr=self.yaml["sr"],
+                                  win_length=self.yaml["win_length"],
+                                  hopsize=self.yaml["hopsize"],
+                                  n_fft=self.yaml["n_fft"],
+                                  fmin=self.yaml["fmin"],
+                                  fmax=self.yaml["fmax"],
+                                  fmax_aug_range=self.yaml["fmax_aug_range"],
+                                  fmin_aug_range=self.yaml["fmin_aug_range"])
         self.name_model = name_model
         self.num_classes = num_classes
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -370,8 +379,12 @@ class EffAtModel():
                 output, embeddings = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))  # Saving embeddings but not necessary
                 outs.append(output)
                 softmax = nn.Softmax(dim=1)
-                predictions = torch.argmax(softmax(output)).item()
-                preds[f"chunk_{i}"] = inverse_class_map[predictions]
+                percentages = softmax(output)
+                predictions = torch.argmax(percentages).item()
+                preds[f"chunk_{i}"] = {
+                    'Predicted Class': inverse_class_map[predictions],
+                    'Confidence per class': {k: float(percentages.cpu().numpy()[0, idx]) for idx, k in enumerate(class_map.keys())}
+                }
                 embs.append(embeddings)
 
         with open(self.results_folder / 'predictions.json', "w") as f:
