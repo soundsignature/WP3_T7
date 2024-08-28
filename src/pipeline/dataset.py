@@ -25,7 +25,7 @@ from mutagen.flac import FLAC
 from tqdm import tqdm
 import logging
 
-UNWANTED_LABELS = ["Undefined", "Waves", "Fishes", "MooringNoise", "Benthos", "Ship", "Chains"]
+UNWANTED_LABELS = ["Undefined", "Waves", "Fishes", "MooringNoise", "Benthos", "Chains", "Sonar"]
 logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
