@@ -1,0 +1,4 @@
+{
+ model_path: "/home/isabel/Documents/Projects/git/WP3_T7/runs/vggish/train/Exp_02/model.joblib",
+ labels_mapping_path: "/home/isabel/Documents/Projects/git/WP3_T7/runs/vggish/train/Exp_02/labels_mapping.json"
+}

@@ -19,7 +19,7 @@ if __name__ == "__main__":
     ANNOTATIONS_PATH = os.getenv("DATASET_PATH")
     ANNOTATIONS_PATH2 = os.getenv("DATASET_PATH2")
     ANNOTATIONS_PATH3 = os.getenv("DATASET_PATH3")
-    YAML_PATH = os.getenv("YAML_PATH")
+    YAML_PATH =os.getenv("YAML_PATH")
     MODEL_TYPE = os.getenv("MODEL_TYPE")
     EXP_NAME = os.getenv("EXP_NAME")
     # LABELS =
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     
     yaml_content = load_yaml(YAML_PATH)
 
-    results_folder = create_exp_dir(name = EXP_NAME, model=MODEL_TYPE, task= "train")
+    results_folder = create_exp_dir(name = EXP_NAME, model=MODEL_TYPE, task= "test")
     
     if MODEL_TYPE.lower() == "passt":
         model = PasstModel(yaml_content=yaml_content,data_path=data_path)
@@ -54,8 +54,7 @@ if __name__ == "__main__":
         model = VggishModel(yaml_content=yaml_content,data_path=data_path, signals=signals, labels=labels, split_info=split_info, sample_rate = sr)
     
     model.plot_processed_data()
-    model.train(results_folder = results_folder)
-    
+    model.test(results_folder = results_folder)
     
         
     

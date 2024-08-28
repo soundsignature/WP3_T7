@@ -76,7 +76,6 @@ class EcossDataset:
         #Iterate over list to check appropiate values, exiting function it variables do not match
         for dataset in dataset_list[1:]:
             if dataset.sr != sr0 or dataset.duration != duration0 or dataset.pad_mode != padding0 or dataset.saving_on_disk != save0:
-                # print("The datasets selected do not have the same characteristics")
                 logger.error("The datasets selected do not have the same characteristics")
                 return
             else:
@@ -124,14 +123,12 @@ class EcossDataset:
                     sr = wav_file.getframerate()
                     if sr < self.sr:
                         indexes_delete.append(i)
-                        # print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
                         logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
             elif row["file"].endswith('.flac'):
                 audio = FLAC(row["file"])
                 sr = audio.info.sample_rate
                 if sr < self.sr:
                     indexes_delete.append(i)
-                    # print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
                     logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
             else:
                 raise ValueError("Unsupported file format. Only WAV and FLAC are supported.")
@@ -344,7 +341,6 @@ class EcossDataset:
                     if self.saving_on_disk:
                         self.save_data(segments, path)
                 except Exception as e:
-                    # print('Error : data could not be saved: '+ str(e))
                     logger.error('DataNotSaved', exc_info=True)
             # Extend the lists of processed signals and labels 
             processed_signals.extend(segments)
@@ -422,7 +418,6 @@ class EcossDataset:
         elif self.pad_mode == 'white_noise':
             segment = self.white_noise_padding(signal, delta_start, delta_end)
         else:
-            # print('Error : pad_mode not valid')
             logger.error("Error : pad_mode not valid")
             exit(1)
             
@@ -531,7 +526,6 @@ class EcossDataset:
         plt.ylabel("# of sound signatures")
         plt.show()
         
-        # print(f"Number of sound signatures per source: {count_signatures}\n")
         logger.info(f"Number of sound signatures per source: {count_signatures}\n")
 
         # Plot for time per class of sound signature
@@ -550,7 +544,6 @@ class EcossDataset:
         plt.ylabel("Time (s)")
         plt.show()
 
-        # print(f"Number of seconds per source: {times}\n")
         logger.info(f"Number of seconds per source: {times}\n")
 
         # Plotting per split (train and test)
@@ -580,8 +573,7 @@ class EcossDataset:
             ax[0].set_title("Train data")
             ax[1].set_title("Test data")
             
-            # print(f"Number of sound signatures per source for train set: {count_signatures_train}\n")
-            # print(f"Number of sound signatures per source for test set: {count_signatures_test}\n")
+
             logger.info(f"Number of sound signatures per source for train set: {count_signatures_train}\n")
             logger.info(f"Number of sound signatures per source for test set: {count_signatures_test}\n")
             
@@ -622,8 +614,7 @@ class EcossDataset:
             ax[0].set_title("Train data")
             ax[1].set_title("Test data")
 
-            # print(f"Number of seconds per source for train set: {times_train}\n")
-            # print(f"Number of seconds per source for test set: {times_test}\n")
+
             logger.info(f"Number of seconds per source for train set: {times_train}\n")
             logger.info(f"Number of seconds per source for test set: {times_test}\n")
 
@@ -701,7 +692,6 @@ class EcossDataset:
             # Save the plot
             plt.savefig(filename + append + ".png")
         except Exception as e:
-            # print(f"An error occurred while plotting overlapping segments: {e}")
             logger.error('ErrorPlotting', exc_info=True)
         finally:
             plt.close(fig) 
