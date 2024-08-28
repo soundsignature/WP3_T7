@@ -10,10 +10,15 @@ import librosa
 import soundfile as sf
 import yaml
 from pathlib import Path
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+from tqdm import tqdm
+import seaborn as sns
+import os
 import torch.nn as nn
 import torchaudio
 import torch
-import os
+import numpy as np
 import random
 import logging
 
@@ -26,7 +31,6 @@ handler = logging.FileHandler("log.log")
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-
 
 def load_yaml(yaml_path: str) -> dict:
     """Function used to load the yaml content. Useful for reading configuration files or any other data stored in YAML format.
@@ -67,6 +71,107 @@ def create_exp_dir(name: str, model: str, task: str) -> str:
     exp_path = Path(exp_path.format(i))
     exp_path.mkdir(exist_ok=True)
     return str(exp_path)
+
+def process_audio_for_inference(path_audio: str, desired_sr: float, desired_duration: float):
+    """It processes audios for inference purposes
+
+    Args:
+        path_audio (str): Path to the audio that needs to be processed
+        desired_sr (float): The desired sampling rate
+        desired_duration (float): The desired duration
+
+    Raises:
+        ValueError: In case the sampling rate of a signal is lower than the desired one.
+
+    Returns:
+        torch.Tensor: The processed signal
+    """
+    y, sr = torchaudio.load(path_audio)
+    resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=desired_sr)
+    
+    # Check sampling rate
+    if sr < desired_sr:
+        raise ValueError(f"Sampling rate of {sr} Hz is lower than the desired sampling rate of {desired_sr} Hz.")
+    if sr > desired_sr:
+        y = resampler(y)
+        sr = desired_sr 
+
+    # Check length
+    length = int(desired_duration * desired_sr)
+    if y.size(1) < length:
+        y = torch.nn.functional.pad(y, (0, length - y.size(1)))
+        y = y.unsqueeze(0)
+    elif y.size(1) > length:
+        chunk_size = desired_sr * desired_duration
+        y = y.unfold(dimension=1, size=int(chunk_size), step=int(chunk_size))
+    else:
+        y = y.unsqueeze(0)
+
+    return y, sr
+
+def save_confusion_matrix(unique_labels, exp_folder, true_labels, predicted_labels, title = "confusion_matrix"):
+    """
+    Saves the confusion matrix and the normalized confusion matrix as SVG files in the specified folder.
+
+    Parameters:
+    unique_labels (list): List of unique labels used in the classification.
+    exp_folder (str): Path to the folder where the files will be saved.
+    true_labels (list or array): True labels of the data.
+    predicted_labels (list or array): Labels predicted by the model.
+    title (str, optional): Title for the confusion matrix plots. Default is "confusion_matrix".
+
+    Returns:
+    None
+    """
+    plt.rcParams.update({'font.size': 22})
+    cm = confusion_matrix(true_labels, predicted_labels)
+    plt.figure(figsize=(10, 10))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+                xticklabels=unique_labels, yticklabels=unique_labels)
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.title(f'{title} - Confusion Matrix')
+    plt.tight_layout()
+    plt.savefig(os.path.join(exp_folder, f'{title}.png'))
+
+    cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    plt.figure(figsize=(10, 10))
+    sns.heatmap(cmn, annot=True, fmt='.2f', cmap='Blues',
+                xticklabels=unique_labels, yticklabels=unique_labels)
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.title(f'{title} - Normalized Confusion Matrix')
+    plt.tight_layout()
+    plt.savefig(os.path.join(exp_folder, f'{title}-normalized.png'))
+    plt.close()
+
+
+def save_training_curves(exp_folder, train_losses, val_losses, val_accs):
+    """
+    Saves the training and validation curves as a PNG file in the specified folder.
+
+    Parameters:
+    exp_folder (str): Path to the folder where the file will be saved.
+    train_losses (list or array): Training losses per epoch.
+    val_losses (list or array): Validation losses per epoch.
+    val_accs (list or array): Validation accuracies per epoch.
+
+    Returns:
+    None
+    """
+    plt.figure(figsize=(12, 4))
+    plt.subplot(1, 2, 1)
+    plt.plot(train_losses, label='Train Loss')
+    plt.plot(val_losses, label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.subplot(1, 2, 2)
+    plt.plot(val_accs, label='Validation Accuracy')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.savefig(os.path.join(exp_folder, f'training_cuves.png'))
 
 
 def process_audio_for_inference(path_audio: str, desired_sr: float, desired_duration: float):

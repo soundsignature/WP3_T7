@@ -26,11 +26,13 @@ if __name__ == "__main__":
     # LABELS =
     sr =32000
     ecoss_list = []
+    yaml_content = load_yaml(YAML_PATH)
     for ANNOT_PATH in [ANNOTATIONS_PATH, ANNOTATIONS_PATH2, ANNOTATIONS_PATH3]:
         ecoss_data1 = EcossDataset(ANNOT_PATH, 'data/', 'zeros', sr, 1,"wav")
         ecoss_data1.add_file_column()
         ecoss_data1.fix_onthology(labels=['Ship'])
         ecoss_data1.filter_overlapping()
+        ecoss_data1.drop_unwanted_labels(["Tursiops","SpermWhale","PilotWhale","MooringNoise","Delphinids","CivilianSonar"])
         ecoss_list.append(ecoss_data1)
         
     ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
@@ -42,7 +44,6 @@ if __name__ == "__main__":
     
     data_path = ecoss_data.path_store_data
     
-    yaml_content = load_yaml(YAML_PATH)
 
     results_folder = create_exp_dir(name = EXP_NAME, model=MODEL_TYPE, task= "train")
     

@@ -39,6 +39,7 @@ if __name__ == "__main__":
     ecoss_data.filter_lower_sr()
     times = ecoss_data.generate_insights()
     ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
+
     signals,labels,split_info = ecoss_data.process_all_data()
     
     data_path = ecoss_data.path_store_data
@@ -46,6 +47,7 @@ if __name__ == "__main__":
     yaml_content = load_yaml(YAML_PATH)
 
     results_folder = create_exp_dir(name = EXP_NAME, model=MODEL_TYPE, task= "test")
+
 
     num_classes = len(ecoss_data.df["final_source"].unique())
     print(f"THE NUMBER OF CLASSES IS {num_classes}\n")
