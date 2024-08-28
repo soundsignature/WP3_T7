@@ -100,7 +100,16 @@ class EffAtModel():
         self.yaml = yaml_content
         self.data_path = data_path
         self.mel = AugmentMelSTFT(freqm=self.yaml["freqm"],
-                                  timem=self.yaml["freqm"])
+                                  timem=self.yaml["freqm"],
+                                  n_mels=self.yaml["n_mels"],
+                                  sr=self.yaml["sr"],
+                                  win_length=self.yaml["win_length"],
+                                  hopsize=self.yaml["hopsize"],
+                                  n_fft=self.yaml["n_fft"],
+                                  fmin=self.yaml["fmin"],
+                                  fmax=self.yaml["fmax"],
+                                  fmax_aug_range=self.yaml["fmax_aug_range"],
+                                  fmin_aug_range=self.yaml["fmin_aug_range"])
         self.name_model = name_model
         self.num_classes = num_classes
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
