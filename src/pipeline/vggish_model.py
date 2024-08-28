@@ -75,7 +75,7 @@ class VggishModel():
         self.plot_results(set = 'train', saving_folder = results_folder, gridsearch = grid, y_true = Y, y_pred = Y_pred)
 
 
-    def test(self, results_folder):
+    def test(self, results_folder, path_model= None, path_data = None):
         """
         Compute the test. The data are processed by the feature extractor and the labels are encoded.
         The metrics "accuracy" and "macro F1" are computed and saved in the results_folder.
