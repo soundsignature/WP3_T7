@@ -13,6 +13,8 @@ from pathlib import Path
 import torch.nn as nn
 import torchaudio
 import torch
+import os
+import random
 import logging
 
 UNWANTED_LABELS = ["Undefined"]
@@ -24,6 +26,7 @@ handler = logging.FileHandler("log.log")
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
+
 
 def load_yaml(yaml_path: str) -> dict:
     """Function used to load the yaml content. Useful for reading configuration files or any other data stored in YAML format.
@@ -66,6 +69,43 @@ def create_exp_dir(name: str, model: str, task: str) -> str:
     return str(exp_path)
 
 
+def process_audio_for_inference(path_audio: str, desired_sr: float, desired_duration: float):
+    """It processes audios for inference purposes
+
+    Args:
+        path_audio (str): Path to the audio that needs to be processed
+        desired_sr (float): The desired sampling rate
+        desired_duration (float): The desired duration
+
+    Raises:
+        ValueError: In case the sampling rate of a signal is lower than the desired one.
+
+    Returns:
+        torch.Tensor: The processed signal
+    """
+    y, sr = torchaudio.load(path_audio)
+    resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=desired_sr)
+    
+    # Check sampling rate
+    if sr < desired_sr:
+        raise ValueError(f"Sampling rate of {sr} Hz is lower than the desired sampling rate of {desired_sr} Hz.")
+    if sr > desired_sr:
+        y = resampler(y)
+        sr = desired_sr 
+
+    # Check length
+    length = int(desired_duration * desired_sr)
+    if y.size(1) < length:
+        y = torch.nn.functional.pad(y, (0, length - y.size(1)))
+        y = y.unsqueeze(0)
+    elif y.size(1) > length:
+        chunk_size = desired_sr * desired_duration
+        y = y.unfold(dimension=1, size=chunk_size, step=chunk_size)
+    else:
+        y = y.unsqueeze(0)
+
+    return y, sr
+
 def flatten(array):
     """
     Flatten a NumPy array.
@@ -82,6 +122,7 @@ def flatten(array):
 def process_data_for_inference(path_audio: str, desired_sr: float, desired_duration: float):
     """
     Process a single signal by resampling and segmenting or padding it.
+
 
     Parameters:
     signal (np.array): Signal array.
@@ -180,6 +221,35 @@ class AugmentMelSTFT(nn.Module):
         melspec = (melspec + 4.5) / 5.  # fast normalization
 
         return melspec
+
+
+
+class EffATWrapper(nn.Module):  # Wrapper
+    def __init__(self, num_classes, model, freeze):
+        super(EffATWrapper, self).__init__()
+        self.num_classes = num_classes
+        self.model = model
+        if freeze:
+            for param in self.model.parameters():
+                param.requires_grad = False 
+        
+        # Replace the number of output features to match classes
+        new_classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d(output_size=1),
+            nn.Flatten(start_dim=1, end_dim=-1),
+            nn.Linear(in_features=960, out_features=1280, bias=True),
+            nn.Hardswish(),
+            nn.Dropout(p=0.2, inplace=True),
+            nn.Linear(in_features=1280, out_features=self.num_classes, bias=True)
+        )
+        model.classifier = new_classifier
+        print(model)
+        self.model = model
+        
+    def forward(self, melspec):
+        logits = self.model(melspec)
+        return logits
+
     
 
 class ConfusionMatrix:
@@ -304,3 +374,4 @@ class ValidationPlot:
         plot.savefig(os.path.join(saving_folder, "TrainigCurves.png"))
         
      
+
