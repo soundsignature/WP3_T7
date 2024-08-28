@@ -30,4 +30,6 @@ if __name__ == "__main__":
     elif MODEL_TYPE.lower() == "vggish":
         model = VggishModel(yaml_content=yaml_content,data_path=INFERENCE_DATA_PATH)
 
+
     model.inference(results_folder=results_folder, path_model=PATH_MODEL_TEST, path_data=INFERENCE_DATA_PATH)
+

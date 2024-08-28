@@ -1,0 +1,10 @@
+{
+  grid_search_params: {
+    "C": [1,1.5,2,2.5],
+    "kernel": [
+      "rbf"
+    ],
+    "gamma": [0.1,0.3],
+    "probability": [true]
+ }
+}
