@@ -370,8 +370,12 @@ class EffAtModel():
                 output, embeddings = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))  # Saving embeddings but not necessary
                 outs.append(output)
                 softmax = nn.Softmax(dim=1)
-                predictions = torch.argmax(softmax(output)).item()
-                preds[f"chunk_{i}"] = inverse_class_map[predictions]
+                percentages = softmax(output)
+                predictions = torch.argmax(percentages).item()
+                preds[f"chunk_{i}"] = {
+                    'Predicted Class': inverse_class_map[predictions],
+                    'Confidence per class': {k: float(percentages.cpu().numpy()[0, idx]) for idx, k in enumerate(class_map.keys())}
+                }
                 embs.append(embeddings)
 
         with open(self.results_folder / 'predictions.json', "w") as f:
