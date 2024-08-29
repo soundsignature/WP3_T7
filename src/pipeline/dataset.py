@@ -851,26 +851,3 @@ class EcossDataset:
         else:
             return False       
 
-
-if __name__ == "__main__":
-    load_dotenv()
-    ANNOTATIONS_PATH = os.getenv("DATASET_PATH")
-    ANNOTATIONS_PATH2 = os.getenv("DATASET_PATH2")
-    ANNOTATIONS_PATH3 = os.getenv("DATASET_PATH3")
-    # LABELS =
-    ecoss_list = []
-    for ANNOT_PATH in [ANNOTATIONS_PATH, ANNOTATIONS_PATH2, ANNOTATIONS_PATH3]:
-        ecoss_data1 = EcossDataset(ANNOT_PATH, 'data/', 'zeros', 32000.0, 1,"wav")
-        ecoss_data1.add_file_column()
-        ecoss_data1.fix_onthology(labels=[])
-        ecoss_data1.filter_overlapping()
-        ecoss_list.append(ecoss_data1)
-        
-    ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
-    length_prior_filter = len(ecoss_data.df)
-    ecoss_data.filter_lower_sr()
-    times = ecoss_data.generate_insights()
-    ecoss_data.split_train_test_balanced(test_size=0.3, random_state=27)
-
-    
-    signals_processed, labels_processed,split  = ecoss_data.process_all_data()
