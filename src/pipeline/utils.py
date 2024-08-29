@@ -19,8 +19,8 @@ import torch.nn as nn
 import torchaudio
 import torch
 import numpy as np
-import random
 import logging
+from enum import Enum
 
 # UNWANTED_LABELS = ["Undefined"]
 logging.basicConfig(level=logging.INFO)
@@ -72,6 +72,7 @@ def create_exp_dir(name: str, model: str, task: str) -> str:
     exp_path.mkdir(exist_ok=True)
     return str(exp_path)
 
+
 def process_audio_for_inference(path_audio: str, desired_sr: float, desired_duration: float):
     """It processes audios for inference purposes
 
@@ -108,6 +109,7 @@ def process_audio_for_inference(path_audio: str, desired_sr: float, desired_dura
         y = y.unsqueeze(0)
 
     return y, sr
+
 
 def save_confusion_matrix(unique_labels, exp_folder, true_labels, predicted_labels, title = "confusion_matrix"):
     """
@@ -187,6 +189,7 @@ def flatten(array):
     flatten_array = array.flatten()
     return flatten_array
 
+
 def process_data_for_inference(path_audio: str, desired_sr: float, desired_duration: float):
     """
     Process a single signal by resampling and segmenting or padding it.
@@ -224,10 +227,26 @@ def process_data_for_inference(path_audio: str, desired_sr: float, desired_durat
     return segments
 
 class AugmentMelSTFT(nn.Module):
-    """ This class is used in order to generate the mel spectrograms for the EffAT and PaSST models
+    """ This class is used in order to generate the mel spectrograms for the EffAT and PaSST models.
+        It includes additional features to the normal mel such as maskings and augmentation.
     """
     def __init__(self, n_mels=128, sr=32000, win_length=800, hopsize=320, n_fft=1024, freqm=48, timem=192,
                  fmin=0.0, fmax=None, fmin_aug_range=10, fmax_aug_range=2000):
+        """The constructor for AugmentMelSTFT class.
+
+        Args:
+            n_mels (int, optional): The number of mel frequency bands. Defaults to 128.
+            sr (int, optional): The sampling rate. Defaults to 32000.
+            win_length (int, optional): The length of the window. Defaults to 800.
+            hopsize (int, optional): Hop size. Defaults to 320.
+            n_fft (int, optional): The number of FFT points. Defaults to 1024.
+            freqm (int, optional): The frequency masking parameter. Defaults to 48.
+            timem (int, optional): The time masking parameter. Defaults to 192.
+            fmin (float, optional): The min frequency. Defaults to 0.0.
+            fmax (float, optional): The max frequency to be plot. Defaults to None (if None, its computed such as sr / 2).
+            fmin_aug_range (int, optional): The min augmentation range. Defaults to 10.
+            fmax_aug_range (int, optional): The max augmentation range. Defaults to 2000.
+        """
         torch.nn.Module.__init__(self)
         # adapted from: https://github.com/CPJKU/kagglebirds2020/commit/70f8308b39011b09d41eb0f4ace5aa7d2b0e806e
 
@@ -258,6 +277,7 @@ class AugmentMelSTFT(nn.Module):
             self.timem = torch.nn.Identity()
         else:
             self.timem = torchaudio.transforms.TimeMasking(timem, iid_masks=True)
+
 
     def forward(self, x):
         # x = nn.functional.conv1d(x.unsqueeze(1), self.preemphasis_coefficient).squeeze(1)  # Makes the mels look bad
@@ -291,9 +311,19 @@ class AugmentMelSTFT(nn.Module):
         return melspec
 
 
+class EffATWrapper(nn.Module):
+    """This class is used as a wrapper to the EffAT model found in src/models/effat_repo. The wrapper
+    replaces the last layer of the model and changes it for a new one with the specified number of classes and if desired it frozes all layers
+    except the last one.
+    """
+    def __init__(self, num_classes: int, model, freeze: bool):
+        """The constructor for the EffATWrapper class.
 
-class EffATWrapper(nn.Module):  # Wrapper
-    def __init__(self, num_classes, model, freeze):
+        Args:
+            num_classes (int): The number of classes for the model.
+            model (_type_): The EfficientAT architecture loaded with the get_mn(pretrained_name=self.name_model) or get_dymn(pretrained_name=self.name_model) function
+            freeze (bool): A boolean to check if we want to freeze all layers except the last one or not.
+        """
         super(EffATWrapper, self).__init__()
         self.num_classes = num_classes
         self.model = model
@@ -311,14 +341,13 @@ class EffATWrapper(nn.Module):  # Wrapper
             nn.Linear(in_features=1280, out_features=self.num_classes, bias=True)
         )
         model.classifier = new_classifier
-        print(model)
         self.model = model
         
+
     def forward(self, melspec):
         logits = self.model(melspec)
         return logits
 
-    
 
 class ConfusionMatrix:
     def __init__(self, labels_mapping_path: str) -> None:
@@ -380,7 +409,6 @@ class ConfusionMatrix:
         plot.savefig(os.path.join(saving_folder, "ConfusionMatrix.png"))
         
 
-
 class ValidationPlot:
     def __init__(self, gridsearch):
         self.gridsearch = gridsearch
@@ -440,6 +468,15 @@ class ValidationPlot:
 
     def save_plot(self, plot, saving_folder):
         plot.savefig(os.path.join(saving_folder, "TrainigCurves.png"))
-        
-     
+
+
+class SuperpositionType(Enum):
+    """A helper class to check the type of superposition when dealing with the overlapping.
+    """
+    NO_SUPERPOSITION = 0
+    STARTS_BEFORE_AND_OVERLAPS = 1
+    STARTS_AFTER_AND_OVERLAPS = 2
+    CONTAINS = 3
+    IS_CONTAINED = 4
+
 

@@ -25,6 +25,7 @@ from sklearn.metrics import f1_score, confusion_matrix
 from glob import glob
 import seaborn as sns
 import pandas as pd
+from typing import Tuple, Dict, Union
 
 from .utils import AugmentMelSTFT, EffATWrapper, process_audio_for_inference
 from models.effat_repo.models.mn.model import get_model as get_mn
@@ -48,7 +49,7 @@ class HelperDataset(Dataset):
             path_data (str): Path to the folder where train and tets folder are located
             sr (float): The sampling rate of the generated dataset
             duration (float): The duration of the generated dataset clips
-            mel (_type_): The AugmentMelSTFT instance
+            mel (AugmentMelSTFT): The AugmentMelSTFT instance
             train (bool, optional): If True, it loads the data inside the train folder, if False, loads the test folder. Defaults to True.
             label_to_idx (dict, optional): Dictionary that associated a class to a integer. Defaults to None.
         """
@@ -83,13 +84,13 @@ class HelperDataset(Dataset):
 
     def __getitem__(self, index):
         path_audio, label = self.data[index]
-        y, sr = torchaudio.load(path_audio)
+        y, _ = torchaudio.load(path_audio)
         return self.mel(y), label, path_audio    
 
 
 class EffAtModel():
     def __init__(self, yaml_content: dict, data_path: str, name_model: str, num_classes: int) -> None:
-        """The constructor for the EffAtModel class
+        """The constructor for the EffAtModel class. A class responsible for all tasks related to the EfficientAT model.
 
         Args:
             yaml_content (dict): The content after reading the config.yaml
@@ -125,8 +126,14 @@ class EffAtModel():
         self.model = model
 
 
-    def load_aux_datasets(self):
-        """This function generated the train and test dataloaders
+    def load_aux_datasets(self) -> Tuple[DataLoader, DataLoader, Dict[str, int]]:
+        """Function that uses the HelperDataset class in order to generate the pytorch dataloaders to model the data.
+        It applies WeightedRandomSampler on the train_dataloader to prevent overfitting due to unbalaced classes.
+
+        Returns:
+            train_dataloader (torch.utils.data.DataLoader):  DataLoader for the training dataset, with weighted sampling applied.
+            test_dataloader (torch.utils.data.DataLoader): DataLoader for the testing dataset, without weighted sampling.
+            label_to_idx (dict): A dictionary mapping each label in the training dataset to its corresponding index.
         """
         dataset_train = HelperDataset(path_data = self.data_path, sr=self.yaml["sr"],
                                       duration=self.yaml["duration"], mel=self.mel,
@@ -157,7 +164,7 @@ class EffAtModel():
         """Trains the model and save everything into the specified folder
 
         Args:
-            results_folder (str): The path to the folder.
+            results_folder (str): The path to the folder where all the results will be stored.
         """
         # Saving the configuration.yaml inside the results folder
         self.results_folder = Path(results_folder)
@@ -287,11 +294,11 @@ class EffAtModel():
                 break
 
             
-    def test(self, results_folder, path_model: str, path_data: str):
+    def test(self, results_folder: str, path_model: str, path_data: str) -> None:
         """Function used to test a trained model on a generated dataset (train or test folder)
 
         Args:
-            results_folder (_type_): The path where the results will be stored
+            results_folder (str): The path where the results will be stored
             path_model (str): The path to the weights that want to be loaded inside the model
             path_data (str): The path where the train and test folders are located
         """
@@ -347,11 +354,11 @@ class EffAtModel():
         self.plot_cm(cm)
         
 
-    def inference(self, results_folder, path_model: str, path_data: str):
+    def inference(self, results_folder: str, path_model: str, path_data: str) -> None:
         """Performs inference on a file
 
         Args:
-            results_folder (_type_): The folder where the results of the inference will be performed
+            results_folder (str): The folder where the results of the inference will be performed
             path_model (str): The path to the weights of the model to be used
             path_data (str): The path to the inference_set
         """
@@ -371,7 +378,7 @@ class EffAtModel():
         outs, embs = [], []
         preds = {}
         with torch.no_grad():
-            y, sr = process_audio_for_inference(path_audio=path_data,
+            y, _ = process_audio_for_inference(path_audio=path_data,
                                                 desired_sr=self.yaml["sr"],
                                                 desired_duration=self.yaml["duration"])
 
@@ -391,8 +398,7 @@ class EffAtModel():
             json.dump(preds, f)
 
 
-
-    def plot_results(self, train_loss, test_loss, train_acc, test_acc):
+    def plot_results(self, train_loss: list, test_loss: list, train_acc: list, test_acc: list) -> None:
         """This function is used to plot and save the figures of the training process
 
         Args:
@@ -416,11 +422,11 @@ class EffAtModel():
         plt.close()
 
 
-    def plot_cm(self, cm):
+    def plot_cm(self, cm: np.ndarray) -> None:
         """Function to plot the confusion matrix 
 
         Args:
-            cm (_type_): The sklearn confusion matrix
+            cm (np.ndarray): The sklearn confusion matrix, a ndarray of shape (n_classes, n_classes)
         """
         plt.figure()
         sns.heatmap(cm, annot=True, cmap='Blues', fmt='d')
@@ -431,11 +437,11 @@ class EffAtModel():
         plt.close()
 
 
-    def save_weights(self, optimizer):
+    def save_weights(self, optimizer: Union[optim.Adam, optim.SGD]) -> None:
         """It is used to save the state dict of the model as well as the optimizer (in case we want to retrain)
 
         Args:
-            optimizer (_type_): The optimizer used in the training (available Adam or SGD)
+            optimizer (Union[optim.Adam, optim.SGD]): The optimizer used for the train process.
         """
         torch.save({
                 'model_state_dict': self.model.state_dict(),
@@ -443,8 +449,8 @@ class EffAtModel():
                 }, self.results_folder / 'model.pth')
         
     
-    def save_results(self, label_encoder, metrics):
-        """It generates the class_dict.json and the metrics.json files
+    def save_results(self, label_encoder: dict, metrics: dict) -> None:
+        """It generates the class_dict.json and the metrics.json files and saves it on the results_folder parameter
 
         Args:
             label_encoder (dict): Contains the mapping of the classes
@@ -459,7 +465,7 @@ class EffAtModel():
             json.dump(metrics, json_file)
 
 
-    def plot_processed_data(self, augment: bool = True):
+    def plot_processed_data(self, augment: bool = True) -> None:
         """This function will plot a random mel spectrogram per class available for the training
         
 
