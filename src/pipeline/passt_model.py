@@ -188,9 +188,8 @@ class PasstModel():
             "Recall ": val_recall
         }
         
-        print(result)
+        logging.info(result)
         if title and self.unique_labels and self.results_folder:
-            print(result)
             with open(str(self.results_folder / title) + ".json", "w") as f:
                 json.dump(result,f)
             save_confusion_matrix(self.unique_labels, self.results_folder,
@@ -223,19 +222,14 @@ class PasstModel():
         results = []
 
         with torch.no_grad():
-            print("XXXXXXXXXXXXXXXXXX")
             for audio_wave in tqdm(y_list, desc=f"predict:"):
-                print(audio_wave.shape)
                 if audio_wave.shape[1] == 0:
                     continue
                 start = time.time()
                 if self.opt.gpu:
                     audio_wave = audio_wave.cuda()
                     target = target.cuda()
-                print(time.time()- start)
                 logits = model(audio_wave)
-                print(logits)
-                print(logits.shape)
                 precentage = torch.nn.Softmax(dim=1)(logits)
                 _, predicted = torch.max(logits.data, 1)
                 inferece_time = time.time()- start
@@ -248,8 +242,6 @@ class PasstModel():
                                     } 
                         )
                 
-
-
 
         logging.info(results)
         with open(str(Path(self.results_folder) / "results.json"),"w") as f:
@@ -266,39 +258,45 @@ class PasstModel():
         pass
 
 
-    def plot_processed_data(self,dataset,model):
-        mel = model.mel
-        mels=[]
-        labels = []
-        filenames = []
-        idx_to_label= {v: k for k, v in dataset.label_to_idx.items()}
+    def plot_processed_data(self,n = 1):
+        train_dataloader, test_dataloader = self.load_train_test_datasets()
+        model = self.create_model()
+        if self.opt.gpu:
+            model = model.cuda()
+        for dataset in [train_dataloader,test_dataloader]:
+            dataset = dataset.dataset
+            mel = model.mel
+            mels=[]
+            labels = []
+            filenames = []
+            idx_to_label= {v: k for k, v in dataset.label_to_idx.items()}
 
-        if n > len(dataset):
-            n = len(dataset)
-        for i,(audio_wave, target, filename) in tqdm(enumerate(dataset)):
-            if audio_wave.shape[1] == 0:
-                continue
-            audio_wave = audio_wave
-            if self.opt.gpu: 
-                audio_wave = audio_wave.cuda()
-            mels.append(mel(audio_wave[np.newaxis,0]).cpu().numpy())
+            if n > len(dataset):
+                n = len(dataset)
+            for i,(audio_wave, target, filename) in tqdm(enumerate(dataset)):
 
-            label = target.numpy()[0]
-            filenames.append(str(filename[0]))
-            if np.isnan(label):
-                labels.append("")
-            else:
-                labels.append(idx_to_label[label])
+                if audio_wave.shape[0] == 0:
+                    continue
+                audio_wave = audio_wave
+                if self.opt.gpu: 
+                    audio_wave = audio_wave.cuda()
+                mels.append(mel(audio_wave[np.newaxis,:]).cpu().numpy())
+
+                label = target
+                filenames.append(str(filename))
+                if np.isnan(label):
+                    labels.append("")
+                else:
+                    labels.append(idx_to_label[label])
+                
+                if i >= n:
+                    break
             
-            if i >= n:
-                break
-        
-        for i,x in enumerate(mels):
-            plt.figure()
-            plt.imshow(x[0],origin="lower")
-            plt.title(f"{str(Path(filenames[i]).stem)}-{labels[i]}")
-            plt.savefig(Path(self.results_folder) / f"example{i:02d}-{labels[i]}.png")
-            plt.close()
+            for i,x in enumerate(mels):
+                plt.figure()
+                plt.imshow(x[0],origin="lower")
+                plt.title(f"{str(Path(filenames[i]).stem)}-{labels[i]}")
+                plt.show()
     
     def create_model(self):
         """
@@ -377,15 +375,15 @@ class PasstModel():
         """
         torch.cuda.empty_cache()
 
-        print(f"train samples: {len(train_dataloader) * self.opt.batch_size}")
-        print(f"val samples: {len(test_dataloader) * self.opt.batch_size}")
-        print(f"number of classes: {len(self.unique_labels)}")
-        print(f"classes dict: {train_dataloader.dataset.label_to_idx}")
+        logging.info(f"train samples: {len(train_dataloader) * self.opt.batch_size}")
+        logging.info(f"val samples: {len(test_dataloader) * self.opt.batch_size}")
+        logging.info(f"number of classes: {len(self.unique_labels)}")
+        logging.info(f"classes dict: {train_dataloader.dataset.label_to_idx}")
 
         with open(Path(self.results_folder) / "class_dict.json", "w") as f:
             json.dump(train_dataloader.dataset.label_to_idx, f)
 
-        print(f"saving results to {self.results_folder}")
+        logging.info(f"saving results to {self.results_folder}")
 
         result_path = Path(self.results_folder / "results.txt")
         create_train_txt(result_path, ["epoch", "train_loss", "val_loss", "val_acc", "val_f1", "val_precision", "val_recall"])
@@ -411,12 +409,6 @@ class PasstModel():
             scheduler = OneCycleLR(self.optimizer, max_lr=self.opt.lr0, total_steps=total_steps, pct_start=self.opt.warmup_epochs / self.opt.num_epochs, anneal_strategy='cos', final_div_factor=1 / self.opt.lrf)
         else:
             scheduler = None
-
-        if self.opt.preanalysis:
-            self.plot_processed_data(train_dataloader,model)
-        # if self.opt.lr_simulation:
-        #     # Simulate training to log learning rate values
-        #     save_lr_curve(scheduler, self.optimizer, self.opt.batch_size * len(train_dataloader), self.opt.num_epochs)
 
         # Early Stopping configuration
         min_delta = 0.001  # Minimum change in loss
@@ -448,7 +440,7 @@ class PasstModel():
 
             train_loss /= len(train_dataloader)
             train_losses.append(train_loss)
-            print(f"Epoch {epoch + 1} completed, Train Loss: {train_loss}")
+            logging.info(f"Epoch {epoch + 1} completed, Train Loss: {train_loss}")
 
             # Test on the validation dataset
             val_loss, val_acc, val_f1, val_precision, val_recall = self.test_model(model, test_dataloader)
@@ -464,7 +456,7 @@ class PasstModel():
             else:
                 early_stopping_counter += 1
                 if early_stopping_counter >= self.opt.patience:
-                    print(f"Early stopping triggered after epoch {epoch + 1}")
+                    logging.info(f"Early stopping triggered after epoch {epoch + 1}")
                     break  # Exit the training loop
 
             update_train_txt(result_path, epoch, [train_loss, val_loss, val_acc, val_f1, val_precision, val_recall])
