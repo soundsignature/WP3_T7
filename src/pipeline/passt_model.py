@@ -145,7 +145,7 @@ class PasstModel():
         self.test_model(model,train_dataloader,title = "train_result")
         self.test_model(model,test_dataloader,title = "val_result")
 
-    def test(self,results_folder, path_model):
+    def test(self,results_folder, path_model, path_data = None):
         """
         Test the PASST model.
 
