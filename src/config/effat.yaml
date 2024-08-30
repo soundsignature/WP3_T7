@@ -1,4 +1,4 @@
-# Augment mel 
+# Augment mel
 freqm: 0
 timem: 0
 n_mels: 128
@@ -12,6 +12,7 @@ fmax_aug_range: 2000
 
 # Model related
 freeze: False
+model_name: mn10_as
 
 # Hyperparameters
 optimizer: adam

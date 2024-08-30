@@ -18,7 +18,6 @@ if __name__ == "__main__":
     YAML_PATH = os.getenv("YAML_PATH")
     MODEL_TYPE = os.getenv("MODEL_TYPE")
     EXP_NAME = os.getenv("EXP_NAME")
-    NAME_MODEL = os.getenv("NAME_MODEL")
     PATH_MODEL_TEST = os.getenv("PATH_MODEL_TEST")
     INFERENCE_DATA_PATH = os.getenv("INFERENCE_DATA_PATH")
 
@@ -32,7 +31,7 @@ if __name__ == "__main__":
         # Get the number of classes of the model
         with open(PATH_MODEL_TEST.replace("model.pth", "class_dict.json"), 'r') as f:
             class_map = json.load(f)
-        model = EffAtModel(yaml_content=yaml_content,data_path=INFERENCE_DATA_PATH, name_model=NAME_MODEL, num_classes=len(class_map))
+        model = EffAtModel(yaml_content=yaml_content,data_path=INFERENCE_DATA_PATH, num_classes=len(class_map))
     elif MODEL_TYPE.lower() == "vggish":
         model = VggishModel(yaml_content=yaml_content,data_path=INFERENCE_DATA_PATH)
 

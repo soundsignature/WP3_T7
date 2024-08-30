@@ -74,9 +74,9 @@ class HelperDataset(Dataset):
             files = [os.path.join(self.path_data, cls, file) for file in os.listdir(os.path.join(self.path_data, cls))]
             for file in files:
                 data.append((file, self.label_to_idx[cls]))
-        
+
         self.data = data
-    
+
 
     def __len__(self):
         return len(self.data)
@@ -85,17 +85,16 @@ class HelperDataset(Dataset):
     def __getitem__(self, index):
         path_audio, label = self.data[index]
         y, _ = torchaudio.load(path_audio)
-        return self.mel(y), label, path_audio    
+        return self.mel(y), label, path_audio
 
 
 class EffAtModel():
-    def __init__(self, yaml_content: dict, data_path: str, name_model: str, num_classes: int) -> None:
+    def __init__(self, yaml_content: dict, data_path: str, num_classes: int) -> None:
         """The constructor for the EffAtModel class. A class responsible for all tasks related to the EfficientAT model.
 
         Args:
             yaml_content (dict): The content after reading the config.yaml
             data_path (str): The path where the train and test folders are located
-            name_model (str): The name of the version of the mobilenets and dynamic mobilenets
             num_classes (int): The number of classes that the model will have to predict among
         """
         self.yaml = yaml_content
@@ -111,7 +110,7 @@ class EffAtModel():
                                   fmax=self.yaml["fmax"],
                                   fmax_aug_range=self.yaml["fmax_aug_range"],
                                   fmin_aug_range=self.yaml["fmin_aug_range"])
-        self.name_model = name_model
+        self.name_model = self.yaml["model_name"]
         self.num_classes = num_classes
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -119,7 +118,7 @@ class EffAtModel():
             model = get_mn(pretrained_name=self.name_model)
         else:
             model = get_dymn(pretrained_name=self.name_model)
-        
+
         # Using the wrapper to modify the last layer and moving to device
         model = EffATWrapper(num_classes=num_classes, model=model, freeze=self.yaml["freeze"])
         model.to(self.device)
@@ -153,13 +152,13 @@ class EffAtModel():
         class_weights = torch.FloatTensor(class_weights).to(self.device)
 
         train_sampler = WeightedRandomSampler(weights=samples_weights, num_samples=len(samples_weights), replacement=True)
-        
+
         train_dataloader = DataLoader(dataset=dataset_train, sampler=train_sampler, batch_size=self.yaml["batch_size"])
         test_dataloader = DataLoader(dataset=dataset_test, batch_size=self.yaml["batch_size"])  # Not doing weighted samples for testing
 
         return train_dataloader, test_dataloader, dataset_train.label_to_idx
 
-        
+
     def train(self, results_folder: str) -> None:
         """Trains the model and save everything into the specified folder
 
@@ -181,15 +180,15 @@ class EffAtModel():
             optimizer = optim.Adam(self.model.parameters(), lr=self.yaml["lr"])
         else:
             optimizer = optim.SGD(self.model.parameters(), lr=self.yaml["lr"])
-        
+
         criterion = nn.CrossEntropyLoss()
-        
+
         best_accuracy = 0.0
         epochs_without_improvement = 0
 
         train_accs, test_accs = [], []
         train_losses, test_losses = [], []
-        
+
         train_dataloader, test_dataloader, label_encoder = self.load_aux_datasets()
 
         for i in tqdm(range(self.yaml["n_epochs"]), desc="Epoch"):
@@ -200,21 +199,21 @@ class EffAtModel():
             total = 0
             all_preds = []
             all_labels = []
-            
+
             for inputs, labels, _ in tqdm(train_dataloader, desc="Train"):
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
                 optimizer.zero_grad()
-                
+
                 # Forward pass
                 outputs, _ = self.model(inputs)
                 outputs = outputs.squeeze()
 
                 loss = criterion(outputs, labels)
-                
+
                 # Backward pass and optimization
                 loss.backward()
                 optimizer.step()
-                
+
                 running_loss += loss.item()
                 batch_count += 1
 
@@ -228,7 +227,7 @@ class EffAtModel():
             epoch_loss = running_loss / batch_count
             train_accuracy = 100 * correct / total
             train_f1 = f1_score(all_labels, all_preds, average='weighted')
-            
+
             # Evaluation
             self.model.eval()
             test_loss = 0.0
@@ -237,7 +236,7 @@ class EffAtModel():
             total = 0
             all_preds = []
             all_labels = []
-            
+
             with torch.no_grad():
                 for inputs, labels, _ in tqdm(test_dataloader, desc="Test"):
                     inputs, labels = inputs.to(self.device), labels.to(self.device)
@@ -254,7 +253,7 @@ class EffAtModel():
                     all_preds.extend(predicted.cpu().numpy())
                     all_labels.extend(labels.cpu().numpy())
 
-                    
+
             avg_test_loss = test_loss / batch_count
             test_accuracy = 100 * correct / total
             test_f1 = f1_score(all_labels, all_preds, average='weighted')
@@ -282,18 +281,18 @@ class EffAtModel():
                            "test_acc": test_accuracy,
                            "train_f1": train_f1,
                            "test_f1": test_f1}
-                
+
                 self.save_results(label_encoder, metrics)
 
             else:
                 epochs_without_improvement += 1
                 logging.info(f"No improvement for {epochs_without_improvement} epoch(s).")
-        
+
             if epochs_without_improvement >= self.yaml["patience"]:
                 logging.info(f"Early stopping triggered after {i+1} epochs.")
                 break
 
-            
+
     def test(self, results_folder: str, path_model: str, path_data: str) -> None:
         """Function used to test a trained model on a generated dataset (train or test folder)
 
@@ -304,7 +303,7 @@ class EffAtModel():
         """
         self.results_folder = Path(results_folder)
         self.test_data_path = path_data
-        
+
         # Load the weights
         checkpoint = torch.load(path_model)
         self.model.load_state_dict(checkpoint['model_state_dict'])
@@ -321,16 +320,16 @@ class EffAtModel():
 
         # Prepare the dataset
         test_dataset = HelperDataset(path_data=path_data, sr=self.yaml["sr"],
-                                     duration=self.yaml["duration"], mel=self.mel, train=self.yaml["test_on_train"], label_to_idx=class_map)  
+                                     duration=self.yaml["duration"], mel=self.mel, train=self.yaml["test_on_train"], label_to_idx=class_map)
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=self.yaml["batch_size"])
 
         logger.info("Dataset succesfully generated")
-        
+
         correct = 0
         total = 0
         all_preds = []
         all_labels = []
-        
+
         with torch.no_grad():
             for inputs, labels, _ in tqdm(test_dataloader, desc="Test"):
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
@@ -348,11 +347,11 @@ class EffAtModel():
 
         metrics = {"test_acc": test_accuracy,
                    "test_f1": test_f1}
-        
+
         self.save_results(class_map, metrics)
         cm = confusion_matrix(all_labels, all_preds)
         self.plot_cm(cm)
-        
+
 
     def inference(self, results_folder: str, path_model: str, path_data: str) -> None:
         """Performs inference on a file
@@ -369,7 +368,7 @@ class EffAtModel():
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.eval()
         self.mel.eval()
-        # Obtain the class mapping 
+        # Obtain the class mapping
         class_map_path = path_model.replace('model.pth', 'class_dict.json')
         with open(class_map_path, 'r') as f:
             class_map = json.load(f)
@@ -413,7 +412,7 @@ class EffAtModel():
         plt.legend()
         plt.savefig(self.results_folder / 'losses.png')
         plt.close()
-        
+
         plt.figure()
         plt.plot(train_acc, label="Train accuracy")
         plt.plot(test_acc, label="Test accuracy")
@@ -423,7 +422,7 @@ class EffAtModel():
 
 
     def plot_cm(self, cm: np.ndarray) -> None:
-        """Function to plot the confusion matrix 
+        """Function to plot the confusion matrix
 
         Args:
             cm (np.ndarray): The sklearn confusion matrix, a ndarray of shape (n_classes, n_classes)
@@ -447,8 +446,8 @@ class EffAtModel():
                 'model_state_dict': self.model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
                 }, self.results_folder / 'model.pth')
-        
-    
+
+
     def save_results(self, label_encoder: dict, metrics: dict) -> None:
         """It generates the class_dict.json and the metrics.json files and saves it on the results_folder parameter
 
@@ -467,7 +466,7 @@ class EffAtModel():
 
     def plot_processed_data(self, augment: bool = True) -> None:
         """This function will plot a random mel spectrogram per class available for the training
-        
+
 
         Args:
             augment (bool, optional): If se to true, the mel will be augmented. Defaults to True.
@@ -492,9 +491,9 @@ class EffAtModel():
             plt.imshow(melspec[0], origin="lower")
             plt.title(av_class)
             plt.show()
- 
 
-            
+
+
 
 
 
