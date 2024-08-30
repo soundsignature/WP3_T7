@@ -27,7 +27,6 @@ import logging
 
 from .utils import SuperpositionType
 
-UNWANTED_LABELS = ["Undefined", "Waves", "Fishes", "MooringNoise", "Benthos", "Chains", "Sonar"]
 logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
@@ -56,7 +55,7 @@ class EcossDataset:
     6.  Splits the dataset into train and test and adds a column to the annotations.csv dataframe.
         The split is performed at File level instead of Segment level to avoid data leakage.
     7.  Finally, the clips are generated and saved on disk if desired.
-    
+
     The class is also able to show insights on the data, and is able to use the concatenate_ecossdataset method in order to generate a EcossDataset instance that contains
     several datasets from the FTP.
     """
@@ -67,7 +66,7 @@ class EcossDataset:
         Args:
             path_dataset (str): The path where the dataset is stored. Datasets should be stored on the FTP format: datasetname/samples_for_training/*.wav_flac. The annotations.csv file is stored on a pd.DataFrame.
             path_store_data (str): The path where we want to store the generated train and test data folders for the AI models.
-            pad_mode (str): The mode for padding in case a signal is shorter than the desired duration. Availables: zeros, white noise 
+            pad_mode (str): The mode for padding in case a signal is shorter than the desired duration. Availables: zeros, white noise
             sr (float): The sampling rate that the generated data will have. If signals with lower sampling rate are found, they are discarded.
             duration (float): The desired duration for the clips generated for the AI models.
             saving_on_disk (bool): If set to True, the generated data will be saved on disk.
@@ -82,7 +81,7 @@ class EcossDataset:
         self.path_annots = os.path.join(self.path_dataset, 'samples for training', 'annotations.csv')
         self.dataset_name = os.path.basename(os.path.normpath(self.path_dataset))
         self.df = pd.read_csv(self.path_annots, sep=";")
-    
+
     @staticmethod
     def concatenate_ecossdataset(dataset_list: list):
         """
@@ -126,9 +125,9 @@ class EcossDataset:
         Adds the file column in order to keep track of each file of the dataset
 
         Parameters:
-       
+
         None
- 
+
         Returns:
         None (updates df atribute with an extra columnn named 'file')
         """
@@ -141,12 +140,12 @@ class EcossDataset:
 
     def filter_lower_sr(self) -> None:
         """
-        Filters the rows of the df attribute which contains a sampling rate lower than the desired 
+        Filters the rows of the df attribute which contains a sampling rate lower than the desired
 
         Parameters:
-       
+
         None
- 
+
         Returns:
         None (updates pd.DataFrame: original DataFrame by filtering the signals with a lower sampling rate)
         """
@@ -171,7 +170,7 @@ class EcossDataset:
             else:
                 indexes_delete.append(i)
                 logger.info(f"File {row['file']} in the folder is missing")
-        
+
         self.df.drop(indexes_delete, inplace=True)
         self.df.reset_index(drop=True, inplace=True)
 
@@ -179,13 +178,13 @@ class EcossDataset:
     def split_train_test_balanced(self, test_size=0.2, random_state=None) -> None:
         """
         Divides the dataframe in train and test at file level, ensuring a balanced class distribution.
-        Adds a 'split' column with values 'test' or 'train'. 
+        Adds a 'split' column with values 'test' or 'train'.
 
         Parameters:
-       
+
         test_size (float): Ratio of test dataset.
         random_state (int): Random seed.
- 
+
         Returns:
         None (updates pd.DataFrame: original DataFrame with an extra columnn named 'split')
         """
@@ -213,7 +212,7 @@ class EcossDataset:
         # Assign in the original DataFrame 'train' or 'test' in columns 'split'
         self.df.loc[self.df['parent_file'].isin(train_files), 'split'] = 'train'
         self.df.loc[self.df['parent_file'].isin(test_files), 'split'] = 'test'
-        
+
 
     def filter_overlapping(self, visualize_overlap = False) -> None:
         """
@@ -249,7 +248,7 @@ class EcossDataset:
                     # Handle when the two overlapping segments are from the same class
                     t_eval = [self.df.loc[eval_idx]['tmin'],self.df.loc[eval_idx]["tmax"]]
                     t_overlap = [self.df.loc[overlap_idx]['tmin'],self.df.loc[overlap_idx]["tmax"]]
-                    
+
                     superpos = self._check_superposition(t_eval,t_overlap)
                     not_count = self._handle_superposition(eval_idx, overlap_idx, superpos)
                     if not_count:
@@ -265,17 +264,17 @@ class EcossDataset:
                 new_df = pd.DataFrame([new_row])
                 new_df.index = [np.max(self.df.index)+1]
                 self.df = pd.concat([self.df,new_df], axis=0)
-            
+
             self.df.at[eval_idx,'to_delete'] = True
-            
+
         # Remove rows marked for deletion
         self.df.drop(self.df[self.df["to_delete"]==True].index,inplace=True)
         self.df.drop(columns=['to_delete'], inplace=True)
         self.df.reset_index(drop=True, inplace=True)
         if visualize_overlap:
-            self._visualize_overlappping(self.df,"_postprocessed") 
-    
-    
+            self._visualize_overlappping(self.df,"_postprocessed")
+
+
     def drop_unwanted_labels(self, unwanted_labels: list) -> None:
         """
         This function drops the rows that contain an unwanted label
@@ -295,17 +294,17 @@ class EcossDataset:
             for label in unwanted_labels:
                 if label in row["final_source"]:
                     idxs_to_drop.append(i)
-        
+
         self.df = self.df.drop(idxs_to_drop)
-        
-    
+
+
     def fix_onthology(self, labels: list[str] = None) -> None:
         """
         This function generates a new column with the final labels on
         the annotations.csv file. If a list of labels is used, the function
         not only formats the labels to use the last part, but also fixes the
         onthology to the level of detail requested.
-        
+
         Parameters
         ----------
         labels : list[str], optional
@@ -318,7 +317,7 @@ class EcossDataset:
         """
         # Dropping rows that contain nan in label_source
         self.df = self.df.dropna(subset=['label_source'])
-        
+
         if labels != None:
             for i, row in self.df.iterrows():
                 for label in labels:
@@ -326,14 +325,14 @@ class EcossDataset:
                     if idx != -1:
                         delimiter = idx + len(label)
                         self.df.loc[i, "label_source"] = self.df.loc[i, "label_source"][:delimiter]
-        
+
         # Once they are defined, we create the final column with the labels
         # Currently not saving, only overwritting the df parameter as this is the first step
         self.df["final_source"] = self.df["label_source"].apply(lambda x: x.split('|')[-1])
-        
-        # Now, we can proceed to eliminate the unwanted labels
-        self.drop_unwanted_labels(UNWANTED_LABELS)
-    
+
+
+
+
 
     def process_all_data(self) -> None:
         """
@@ -368,12 +367,12 @@ class EcossDataset:
             signal = signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
             # Process the signal
             segments = self.process_data(signal, original_sr)
-            # Count how many times 
+            # Count how many times
             if row["file"] in files_dict:
                 files_dict[row["file"]] += 1
             else:
                 files_dict[row["file"]] = 0
-            
+
             path = Path(row["split"]) / label / f"{Path(row['file']).stem}_{files_dict[row['file']]:03d}"
             if self.saving_on_disk:
                 try:
@@ -382,16 +381,16 @@ class EcossDataset:
                         self.save_data(segments, path)
                 except Exception as e:
                     logger.error('DataNotSaved', exc_info=True)
-            # Extend the lists of processed signals and labels 
+            # Extend the lists of processed signals and labels
             processed_signals.extend(segments)
             processed_labels.extend([label] * len(segments))
             processed_splits.extend([split] * len(segments))
-            
-        # Ensure the lengths of signals and labels match  
+
+        # Ensure the lengths of signals and labels match
         assert len(processed_signals)==len(processed_labels),f'Error : signals and labels processed have different length. Signal: {len(processed_signals)}, labels: {len(processed_labels)}'
         return processed_signals, processed_labels, processed_splits
-                        
-            
+
+
     def process_data(self, signal, original_sr) -> list[np.ndarray]:
         """
         Process a single signal by resampling and segmenting or padding it.
@@ -406,17 +405,17 @@ class EcossDataset:
         # Resample the signal if the original sampling rate is different from the target
         if original_sr != self.sr:
             signal = librosa.resample(y=signal, orig_sr=original_sr, target_sr=self.sr)
-         
-        # Pad the signal if it is shorter than the segment length   
+
+        # Pad the signal if it is shorter than the segment length
         if len(signal) < self.segment_length:
             segments = self.make_padding(signal)
          # Segment the signal if it is longer or equal to the segment length
         elif len(signal) >= self.segment_length:
             segments = self.make_segments(signal)
-            
+
         return segments
-    
-    
+
+
     def make_segments(self, signal: np.ndarray) -> list[np.ndarray]:
         """
         Segment a signal into equal parts based on segment length (duration).
@@ -435,8 +434,8 @@ class EcossDataset:
             segment = signal[(i*self.segment_length):((i+1)*self.segment_length)]
             segments.append(segment)
         return segments
-            
-            
+
+
     def make_padding(self, signal: np.ndarray) -> list[np.ndarray]:
         """
         Pad a signal to match a fixed segment length using the specified pad mode.
@@ -450,8 +449,8 @@ class EcossDataset:
         # Calculate the amount of padding needed
         delta = self.segment_length - len(signal)
         delta_start = delta // 2
-        delta_end = delta_start if delta%2 == 0 else (delta // 2) + 1 
-        
+        delta_end = delta_start if delta%2 == 0 else (delta // 2) + 1
+
         # Pad the signal according to the specified mode
         if self.pad_mode == 'zeros':
            segment = self.zero_padding(signal, delta_start, delta_end)
@@ -460,9 +459,9 @@ class EcossDataset:
         else:
             logger.error("Error : pad_mode not valid")
             exit(1)
-            
+
         return [segment]
-    
+
 
     def zero_padding(self, signal: np.ndarray, delta_start: int, delta_end: int) -> np.ndarray:
         """
@@ -477,10 +476,10 @@ class EcossDataset:
         np.array: Zero-padded signal.
         """
         segment = np.pad(signal, (delta_start, delta_end), 'constant', constant_values=(0, 0))
-        
+
         return segment
-    
-    
+
+
     def white_noise_padding(self, signal: np.ndarray, delta_start: int, delta_end: int):
         """
         Pad the signal with white noise.
@@ -492,7 +491,7 @@ class EcossDataset:
 
         Returns:
         np.array: White-noise padded signal.
-        """ 
+        """
         # Generate white noise with standard deviation scaled to the signal
         std = np.std(signal)/10
         white_noise_start = np.random.normal(loc=0, scale=std, size=delta_start)
@@ -502,8 +501,8 @@ class EcossDataset:
         segment = np.concatenate((white_noise_start, signal, white_noise_end))
 
         return segment
-    
-    
+
+
     def save_data(self, segments: list[np.ndarray], path: str) -> None:
         """
         Save the processed segments to disk in the specified format (pickle or wav).
@@ -524,7 +523,7 @@ class EcossDataset:
         # Create the cache directory if it does not exist
         save_path = Path(self.path_store_data) / path
         save_path.parent.mkdir(parents = True, exist_ok = True)
-        filename = save_path 
+        filename = save_path
         if self.saving_on_disk == "pickle":
             # Save each segment as a separate pickle file
             for idx, segment in enumerate(segments):
@@ -538,13 +537,13 @@ class EcossDataset:
                 sf.write(saving_filename, segment, int(self.sr))
         else:
             raise ValueError(f"saving_on_disk should be pickle or wav, not {self.saving_on_disk}")
-        
+
 
     def generate_insights(self) -> None:
         """
         This function is used to generate insights on the data. It generates plots
         for the number of sound signatures per class, and the time per class.
-        
+
         IMPORTANT: It needs to be used right after the first step (the remapping and reformating of classes).
         However, you dont need to remap the labels if you don't want to, as this parameter
         is optional.
@@ -564,7 +563,7 @@ class EcossDataset:
         plt.xlabel("Source")
         plt.ylabel("# of sound signatures")
         plt.show()
-        
+
         logger.info(f"Number of sound signatures per source: {count_signatures}\n")
 
         # Plot for time per class of sound signature
@@ -589,7 +588,7 @@ class EcossDataset:
         if 'split' in self.df.columns:
             df_train = self.df[self.df["split"] == "train"]
             df_test = self.df[self.df["split"] == "test"]
-            
+
             # Number of sound signatures related
             fig, ax = plt.subplots(ncols=2, figsize=(12,6))
             count_signatures_train = df_train["final_source"].value_counts()
@@ -608,17 +607,17 @@ class EcossDataset:
 
             ax[0].set_xlabel("Source")
             ax[0].set_ylabel("# of sound signatures")
-            
+
             ax[0].set_title("Train data")
             ax[1].set_title("Test data")
-            
+
 
             logger.info(f"Number of sound signatures per source for train set: {count_signatures_train}\n")
             logger.info(f"Number of sound signatures per source for test set: {count_signatures_test}\n")
-            
+
             plt.tight_layout()
             plt.show()
-            
+
             # Time related
             times_train = dict()
             times_test = dict()
@@ -637,7 +636,7 @@ class EcossDataset:
             fig, ax = plt.subplots(ncols=2, figsize=(12,6))
             ax[0].bar(range(0, len(times_train)), times_train.values())
             ax[1].bar(range(0, len(times_test)), times_test.values())
-            
+
             ax[0].set_xticks(range(0, len(times_train)),
                                list(times_train.keys()),
                                horizontalalignment='center',
@@ -649,7 +648,7 @@ class EcossDataset:
 
             ax[0].set_xlabel("Source")
             ax[0].set_ylabel("Time (s)")
-            
+
             ax[0].set_title("Train data")
             ax[1].set_title("Test data")
 
@@ -659,7 +658,7 @@ class EcossDataset:
 
             plt.tight_layout()
             plt.show()
-            
+
 
     def _extract_overlapping_info(self):
         """
@@ -675,8 +674,8 @@ class EcossDataset:
                 overlap_info_processed.append([])
                 continue
             overlap_info_processed.append(self._parse_overlapping_field(row["overlap_info"]))
-        return overlap_info_processed   
-    
+        return overlap_info_processed
+
 
     def _visualize_overlappping(self, df: pd.DataFrame, append: str = "") -> None:
         """
@@ -691,19 +690,19 @@ class EcossDataset:
         """
         # Get unique parent files
         files = df["parent_file"].unique()
-        
+
         for file in files:
             segments = []
             labels = []
-            
+
             # Iterate through rows corresponding to the current parent file
             for eval_idx, row in df[df["parent_file"] == file].iterrows():
                 segments.append([row['tmin'], row["tmax"]])
                 labels.append(row['final_source'])
-            
+
             # Plot segments for the current file
             self._plot_segments(segments, labels, file, append=append)
-    
+
 
     @staticmethod
     def _plot_segments(segments: list[list], labels: list[str], filename: str, append: str = "") -> None:
@@ -735,7 +734,7 @@ class EcossDataset:
         except Exception as e:
             logger.error('ErrorPlotting', exc_info=True)
         finally:
-            plt.close(fig) 
+            plt.close(fig)
 
 
     @staticmethod
@@ -751,21 +750,21 @@ class EcossDataset:
         """
         # Split the string by commas and remove the last empty element
         overlapping_str = overlapping_str.split(",")[:-1]
-        
+
         # Group the elements into sublists of three elements each
         divided_list = [overlapping_str[i:i + 3] for i in range(0, len(overlapping_str), 3)]
-        
+
         overlap_info = []
-        
+
         # Parse each sublist to extract index, start, and stop values
         for x in divided_list:
             index = [int(s) for s in x[0].split() if s.isdigit()][0]
             start = float(x[1].split(':')[-1])
             stop = float(x[2].split(':')[-1])
             overlap_info.append((index, start, stop))
-        
+
         return overlap_info
-    
+
 
     @staticmethod
     def _check_superposition(segment1: list, segment2: list):
@@ -823,7 +822,7 @@ class EcossDataset:
             subevents.append([start, tmax])
 
         return subevents
-    
+
 
     def _handle_superposition(self, eval_idx: int, overlap_idx: int, superpos) -> bool:
         """
@@ -849,5 +848,5 @@ class EcossDataset:
             self.df.at[eval_idx, 'to_delete'] = True
             return True
         else:
-            return False       
+            return False
 
