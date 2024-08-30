@@ -10,3 +10,17 @@ config.yaml
 scripts/log.log
 src/pipeline/__pycache__/
 scripts/runs
+log.log
+runs/
+src/pipeline/effat_repo/models/mn/__pycache__/
+src/pipeline/effat_repo/models/dymn/__pycache__/
+resources/
+runs/
+*.ckpt
+*.wav
+*.csv
+__pycache__
+*.log
+*.pyc
+.pylintrc
+

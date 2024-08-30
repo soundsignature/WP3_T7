@@ -1,0 +1,48 @@
+
+# General Configuration
+batch_size: 8  # Number of samples per batch during training
+gpu: False  # Whether to use GPU for training (True/False)
+freeze_layers: False  # Whether to freeze layers of the model during training
+num_epochs: 1  # Number of epochs to train the model
+
+# Preprocessing Parameters
+preprocess_type: mel  # Type of preprocessing to apply (e.g., 'mel' for Mel spectrogram)
+n_mels: 128  # Number of Mel bands to generate
+sr: 32000.0  # Sample rate of the audio
+win_length: 800  # Window length for STFT
+hopsize: 320  # Hop size for STFT
+n_fft: 1024  # Number of FFT components
+freqm: 5  # Frequency masking parameter for data augmentation
+timem: 19  # Time masking parameter for data augmentation
+htk: False  # Whether to use HTK formula for Mel scale
+fmin: 0.0  # Minimum frequency for Mel scale
+fmax: null  # Maximum frequency for Mel scale (null means sr/2)
+norm: 1  # Normalization type for Mel spectrogram
+fmin_aug_range: 10  # Frequency range for augmentation
+fmax_aug_range: 2000  # Maximum frequency range for augmentation
+apply_preemphasis_coefficient: True  # Whether to apply pre-emphasis to the audio
+duration: 1.0  # Duration of the audio clips in seconds
+
+# Model Parameters
+in_channels: 1  # Number of input channels (e.g., 1 for mono audio)
+model_architecture: passt_s_kd_p16_128_ap486  # Model architecture to use (e.g., 'passt_l_kd_p16_128_ap47')
+fstride: 10  # Frequency stride for the model
+tstride: 10  # Time stride for the model
+input_fdim: 128  # Input frequency dimension
+input_tdim: 998  # Input time dimension
+u_patchout: 0  # Unstructured patchout (dropout) rate
+s_patchout_t: 0  # Structured patchout rate in time dimension
+s_patchout_f: 0  # Structured patchout rate in frequency dimension
+pretrained: True  # Whether to use a pretrained on Audioset model
+weights_path: ""  # Path to the pretrained weights (if any)
+
+# Hyperparameters
+optimizer: "Adam"  # Optimizer to use (e.g., 'Adam', 'SGD')
+lr0: 1.0e-6  # Initial learning rate (SGD=1E-2, Adam=1E-3)
+momentum: 10  # Momentum for SGD or beta1 for Adam
+weight_decay: 0.0005  # Weight decay for the optimizer
+scheduler: ""  # Learning rate scheduler to use (if any)
+lrf: 0.001  # Final learning rate factor for OneCycleLR (lr0 * lrf)
+warmup_epochs: 5.0  # Number of warmup epochs
+warmup_momentum: 0.8  # Initial momentum during warmup
+patience: 5  # Number of epochs without improvement before early stopping

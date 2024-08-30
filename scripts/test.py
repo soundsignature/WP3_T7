@@ -1,3 +1,4 @@
+
 import sys
 import os
 
@@ -22,6 +23,7 @@ if __name__ == "__main__":
     EXP_NAME = os.getenv("EXP_NAME")
     NEW_ONTOLOGY = os.getenv("NEW_ONTOLOGY").split(',')
     UNWANTED_LABELS = os.getenv("UNWANTED_LABELS").split(',')
+    PATH_MODEL_TEST = os.getenv("PATH_MODEL_TEST")
     TEST_SIZE = os.getenv("TEST_SIZE")
 
     sr =32000
@@ -44,8 +46,8 @@ if __name__ == "__main__":
     signals,labels,split_info = ecoss_data.process_all_data()
     data_path = ecoss_data.path_store_data
 
+    results_folder = create_exp_dir(name = EXP_NAME, model=MODEL_TYPE, task= "test")
 
-    results_folder = create_exp_dir(name = EXP_NAME, model=MODEL_TYPE, task= "train")
 
     num_classes = len(ecoss_data.df["final_source"].unique())
     print(f"THE NUMBER OF CLASSES IS {num_classes}\n")
@@ -58,7 +60,5 @@ if __name__ == "__main__":
         model = VggishModel(yaml_content=yaml_content,data_path=data_path, signals=signals, labels=labels, split_info=split_info, sample_rate = sr)
 
     model.plot_processed_data()
-    model.train(results_folder = results_folder)
-
-
+    model.test(results_folder=results_folder, path_model=PATH_MODEL_TEST, path_data=data_path)
 
