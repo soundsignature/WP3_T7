@@ -118,6 +118,10 @@ class PasstModel():
         self.yaml = yaml_content
         self.data_path = Path(data_path)
         self.opt = Namespace(**self.yaml)
+        self.loss_fn = CrossEntropyLoss()
+        self.n_classes = None # Should be calculated later and overwritted
+        self.unique_labels = None # Should be calculated later and overwritted
+        self.optimizer = None # Should be calculated later and overwritted
 
 
     def train(self,results_folder):
@@ -127,23 +131,22 @@ class PasstModel():
         Args:
             results_folder (str): Path to the folder where results will be saved.
         """
-        self.results_folder = Path(results_folder)
+        results_folder = Path(results_folder)
         logging.info("Training PASST")
-        output_config_path = self.results_folder / 'configuration.yaml'
+        output_config_path = results_folder / 'configuration.yaml'
         logging.info(f"Saving configuration in {output_config_path}")
         with open(str(output_config_path), 'w', encoding="utf-8") as outfile:
             yaml.dump(self.yaml, outfile, default_flow_style=False)
         logging.info(f"Config params:\n {self.yaml}")
 
         train_dataloader, test_dataloader = self.load_train_test_datasets()
-        self.loss_fn = CrossEntropyLoss()
         model = self.create_model()
         if self.opt.gpu:
             model = model.cuda()
-        model = self.train_model(model,train_dataloader,test_dataloader)
+        model = self.train_model(model,train_dataloader,test_dataloader,results_folder)
 
-        self.test_model(model,train_dataloader,title = "train_result")
-        self.test_model(model,test_dataloader,title = "val_result")
+        self.test_model(model,train_dataloader,results_folder,title = "train_result")
+        self.test_model(model,test_dataloader,results_folder,title = "val_result")
 
     def test(self,results_folder, path_model, path_data = None):
         """
@@ -155,13 +158,12 @@ class PasstModel():
             path_data (str): Path to the dataset.
         """
         logging.info("Testing PASST")
-        self.results_folder = Path(results_folder)
+        results_folder = Path(results_folder)
         path_model = Path(path_model)
         self.opt.weights_path = path_model
         with open(str(path_model.parent / "class_dict.json"),"r", encoding="utf-8") as f:
             class_dict = json.load(f)
         self.n_classes = len(class_dict)
-        self.loss_fn = CrossEntropyLoss()
         model = self.create_model()
         if self.opt.gpu:
             model = model.cuda()
@@ -169,7 +171,7 @@ class PasstModel():
         logging.info("Weights succesfully loaded into the model")
         test_dataloader = DataLoader(HelperDataset(self.data_path / "train",duration = self.opt.duration,sr=self.opt.sr))
         self.unique_labels = test_dataloader.dataset.labels
-        self.test_model(model,test_dataloader,title = "test_result")
+        self.test_model(model,test_dataloader,results_folder,title = "test_result")
 
     def inference(self,results_folder, path_model, path_data):
         """
@@ -181,7 +183,7 @@ class PasstModel():
             path_data (str): Path to the dataset.
         """
         logging.info("Infering with PASST")
-        self.results_folder = Path(results_folder)
+        results_folder = Path(results_folder)
         path_model = Path(path_model)
         self.opt.weights_path = path_model
         with open(str(path_model.parent / "class_dict.json"),"r",encoding="utf-8") as f:
@@ -223,11 +225,11 @@ class PasstModel():
                         )
 
         logging.info(results)
-        with open(str(Path(self.results_folder) / "results.json"), "w", encoding="utf-8") as f:
+        with open(str(Path(results_folder) / "results.json"), "w", encoding="utf-8") as f:
             json.dump(results, f, default=str)
 
 
-    def test_model(self, model, dataloader, title=""):
+    def test_model(self, model, dataloader, results_folder, title=""):
         """
         Evaluate the performance of a given model on a validation dataset.
 
@@ -294,13 +296,13 @@ class PasstModel():
         logging.info(result)
 
         # Save results and confusion matrix if title and necessary attributes are provided
-        if title and self.unique_labels and self.results_folder:
-            with open(str(self.results_folder / title) + ".json", "w", encoding = "utf-8") as f:
+        if title and self.unique_labels and results_folder:
+            with open(str(results_folder / title) + ".json", "w", encoding = "utf-8") as f:
                 json.dump(result, f)
-            save_confusion_matrix(self.unique_labels, self.results_folder, true_labels, pred_labels, title=title)
+            save_confusion_matrix(self.unique_labels, results_folder, true_labels, pred_labels, title=title)
             report = classification_report(true_labels, pred_labels, output_dict=True)
             report_df = pd.DataFrame(report).transpose()
-            report_df.to_csv(str(self.results_folder / ("classification_report" + title + ".csv")))
+            report_df.to_csv(str(results_folder / ("classification_report" + title + ".csv")))
 
         return val_loss, val_acc, val_f1, val_precision, val_recall
 
@@ -470,7 +472,7 @@ class PasstModel():
             model.net.load_state_dict(state_dict)
         return model
 
-    def train_model(self,model,train_dataloader,test_dataloader):
+    def train_model(self,model,train_dataloader,test_dataloader,results_folder):
         """
         Trains the model.
 
@@ -490,12 +492,12 @@ class PasstModel():
         logging.info(f"number of classes: {len(self.unique_labels)}")
         logging.info(f"classes dict: {train_dataloader.dataset.label_to_idx}")
 
-        with open(Path(self.results_folder) / "class_dict.json", "w", encoding="utf-8") as f:
+        with open(Path(results_folder) / "class_dict.json", "w", encoding="utf-8") as f:
             json.dump(train_dataloader.dataset.label_to_idx, f)
 
-        logging.info(f"saving results to {self.results_folder}")
+        logging.info(f"saving results to {results_folder}")
 
-        result_path = Path(self.results_folder / "results.csv")
+        result_path = Path(results_folder / "results.csv")
         create_train_csv(result_path, ["epoch", "train_loss", "val_loss", "val_acc", "val_f1", "val_precision", "val_recall"])
 
         if self.opt.freeze_layers:
@@ -553,7 +555,7 @@ class PasstModel():
             logging.info(f"Epoch {epoch + 1} completed, Train Loss: {train_loss}")
 
             # Test on the validation dataset
-            val_loss, val_acc, val_f1, val_precision, val_recall = self.test_model(model, test_dataloader)
+            val_loss, val_acc, val_f1, val_precision, val_recall = self.test_model(model, test_dataloader,results_folder)
             val_losses.append(val_loss)
             val_accs.append(val_acc)
 
@@ -562,7 +564,7 @@ class PasstModel():
                 best_val_loss = val_loss
                 early_stopping_counter = 0
                 best_model_state_dict = deepcopy(model.state_dict())
-                torch.save(best_model_state_dict, os.path.join(self.results_folder, f'checkpoint_{epoch + 1}.pth'))
+                torch.save(best_model_state_dict, os.path.join(results_folder, f'checkpoint_{epoch + 1}.pth'))
             else:
                 early_stopping_counter += 1
                 if early_stopping_counter >= self.opt.patience:
@@ -571,11 +573,11 @@ class PasstModel():
 
             update_train_csv(result_path, epoch, [train_loss, val_loss, val_acc, val_f1, val_precision, val_recall])
 
-        torch.save(deepcopy(model.state_dict()), os.path.join(self.results_folder, 'last.pth'))
+        torch.save(deepcopy(model.state_dict()), os.path.join(results_folder, 'last.pth'))
 
-        save_training_curves(self.results_folder, train_losses, val_losses, val_accs)
+        save_training_curves(results_folder, train_losses, val_losses, val_accs)
         if best_model_state_dict is not None:  # Ensure a better model was found
-            torch.save(best_model_state_dict, os.path.join(self.results_folder, 'best.pth'))
+            torch.save(best_model_state_dict, os.path.join(results_folder, 'best.pth'))
         model.load_state_dict(best_model_state_dict)
         return model
 
