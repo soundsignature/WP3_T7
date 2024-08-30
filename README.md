@@ -43,6 +43,7 @@ EXP_NAME = # desired name of the folder to store the results
 # Dataset Management parameters
 NEW_ONTOLOGY = 'Ship,Biological,...' # Top level to group labels
 UNWANTED_LABELS = 'Tursiops,SpermWhale,...' # Labels to drop
+TEST_SIZE = # Size of the test set in decimal format (e.g. 0.3)
 
 # Train parameters
 ANNOTATIONS_PATHS= 'path/to/data1,path/to/data1,...'
