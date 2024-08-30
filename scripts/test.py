@@ -21,7 +21,6 @@ if __name__ == "__main__":
     YAML_PATH = os.getenv("YAML_PATH")
     MODEL_TYPE = os.getenv("MODEL_TYPE")
     EXP_NAME = os.getenv("EXP_NAME")
-    NAME_MODEL = os.getenv("NAME_MODEL")
     NEW_ONTOLOGY = os.getenv("NEW_ONTOLOGY").split(',')
     UNWANTED_LABELS = os.getenv("UNWANTED_LABELS").split(',')
     PATH_MODEL_TEST = os.getenv("PATH_MODEL_TEST")
@@ -56,7 +55,7 @@ if __name__ == "__main__":
     if MODEL_TYPE.lower() == "passt":
         model = PasstModel(yaml_content=yaml_content,data_path=data_path)
     elif MODEL_TYPE.lower() == "effat":
-        model = EffAtModel(yaml_content=yaml_content,data_path=data_path, name_model=NAME_MODEL, num_classes=num_classes)
+        model = EffAtModel(yaml_content=yaml_content,data_path=data_path, num_classes=num_classes)
     elif MODEL_TYPE.lower() == "vggish":
         model = VggishModel(yaml_content=yaml_content,data_path=data_path, signals=signals, labels=labels, split_info=split_info, sample_rate = sr)
 
