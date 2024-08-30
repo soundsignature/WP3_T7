@@ -10,6 +10,8 @@ The project uses [Poetry](https://python-poetry.org/) for dependency management 
 - **Windows users**: Use the command `poetry install --with intel`
 - **Linux users**: Use the command `poetry install --without intel`
 
+The recommended Poetry version is **1.8.3**
+
 ## Repository Structure
 
 The repository is organized as follows:
