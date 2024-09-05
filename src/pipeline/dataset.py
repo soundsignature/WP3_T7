@@ -24,7 +24,7 @@ import wave
 from mutagen.flac import FLAC
 from tqdm import tqdm
 import logging
-import soundfile as sf
+import torchaudio
 
 from .utils import SuperpositionType
 
@@ -163,7 +163,7 @@ class EcossDataset:
                                 indexes_delete.append(i)
                                 logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
                     except wave.Error:
-                        _ , sr = sf.read(row["file"], dtype='float32')
+                        _ , sr = torchaudio.load(row["file"])
                         if sr < self.sr:
                             indexes_delete.append(i)
                             logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
@@ -377,7 +377,7 @@ class EcossDataset:
             # Load audio file
             if file != row["file"]:
                 file  = row["file"]
-                signal, original_sr = sf.read(file)
+                original_signal, original_sr = sf.read(file)
 
             if "final_source" in row.index:
                 label = row["final_source"]
@@ -385,7 +385,7 @@ class EcossDataset:
                 label = row["label_source"]
             split = row["split"]
             # Extract only the label segment
-            signal = signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
+            signal = original_signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
             # Process the signal
             segments = self.process_data(signal, original_sr)
             # Count how many times
