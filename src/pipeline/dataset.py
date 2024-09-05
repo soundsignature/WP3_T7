@@ -24,6 +24,7 @@ import wave
 from mutagen.flac import FLAC
 from tqdm import tqdm
 import logging
+import soundfile as sf
 
 from .utils import SuperpositionType
 
@@ -78,8 +79,11 @@ class EcossDataset:
         self.duration = duration
         self.segment_length = int(self.duration * self.sr)
         self.saving_on_disk = saving_on_disk
-        self.path_annots = os.path.join(self.path_dataset, 'samples for training', 'annotations.csv')
         self.dataset_name = os.path.basename(os.path.normpath(self.path_dataset))
+        if os.path.exists(os.path.join(self.path_dataset, 'samples for training')):
+            self.path_dataset = os.path.join(self.path_dataset, 'samples for training')
+        self.path_annots = os.path.join(self.path_dataset, 'annotations.csv')
+        
         self.df = pd.read_csv(self.path_annots, sep=";")
 
     @staticmethod
@@ -134,7 +138,6 @@ class EcossDataset:
         self.df["file"] = ''
         for i, row in self.df.iterrows():
             self.df.at[i, "file"] = os.path.join(self.path_dataset,
-                                                 'samples for training',
                                                  self.df.at[i, 'reference'])
 
 
@@ -153,12 +156,19 @@ class EcossDataset:
         for i, row in self.df.iterrows():
             if os.path.isfile(row["file"]):
                 if row["file"].endswith('.wav'):
-                    with wave.open(row["file"], 'rb') as wav_file:
-                        sr = wav_file.getframerate()
+                    try:
+                        with wave.open(row["file"], 'rb') as wav_file:
+                            sr = wav_file.getframerate()
+                            if sr < self.sr:
+                                indexes_delete.append(i)
+                                logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
+                    except wave.Error:
+                        _ , sr = sf.read(row["file"], dtype='float32')
                         if sr < self.sr:
                             indexes_delete.append(i)
-                            # print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
                             logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
+
+
                 elif row["file"].endswith('.flac'):
                     audio = FLAC(row["file"])
                     sr = audio.info.sample_rate
@@ -224,7 +234,10 @@ class EcossDataset:
         Returns:
         None
         """
+        if "overlapping" not in self.df.columns:
+            self.df["overlapping"] = False
         overlap_info_processed = self._extract_overlapping_info()
+        
         self.df["overlap_info_processed"] = overlap_info_processed
         # self.df.dropna(subset=["final_source"],inplace=True)
         self.df["to_delete"] = False
@@ -239,6 +252,8 @@ class EcossDataset:
                 continue
             segments_to_delete = []
             for overlap_idx,tmin,tmax in self.df.loc[eval_idx]["overlap_info_processed"]:
+                tmin = float(tmin)
+                tmax = float(tmax)
                 if overlap_idx not in self.df.index:
                     continue
                 if self.df.loc[eval_idx]["final_source"] != self.df.loc[overlap_idx]["final_source"]:
@@ -317,7 +332,10 @@ class EcossDataset:
         """
         # Dropping rows that contain nan in label_source
         self.df = self.df.dropna(subset=['label_source'])
+        
 
+        if not labels:
+            labels = None
         if labels != None:
             for i, row in self.df.iterrows():
                 for label in labels:
@@ -673,7 +691,7 @@ class EcossDataset:
             if pd.isna(row["overlapping"]):
                 overlap_info_processed.append([])
                 continue
-            overlap_info_processed.append(self._parse_overlapping_field(row["overlap_info"]))
+            overlap_info_processed.append(self._parse_overlapping_field(str(row["overlap_info"])))
         return overlap_info_processed
 
 
@@ -805,6 +823,7 @@ class EcossDataset:
         Returns:
         list of lists: A list of [tmin, tmax] pairs representing the subevents.
         """
+        event = [float(x) for x in event]
         tmin, tmax = event
         subevents = []
         start = tmin
