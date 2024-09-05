@@ -371,11 +371,14 @@ class EcossDataset:
             logger.info(f"Files will be saved in {self.path_store_data}")
         else:
             logger.info(f"Files will not be saved in disk")
-
+        file = ""
         # Iterate over all signals, sr, paths, labels
         for _,row in tqdm(self.df.iterrows(), total=self.df.shape[0],desc='Processing Audios'):
             # Load audio file
-            signal, original_sr = sf.read(row["file"])
+            if file != row["file"]:
+                file  = row["file"]
+                signal, original_sr = sf.read(file)
+
             if "final_source" in row.index:
                 label = row["final_source"]
             else:
@@ -386,10 +389,10 @@ class EcossDataset:
             # Process the signal
             segments = self.process_data(signal, original_sr)
             # Count how many times
-            if row["file"] in files_dict:
-                files_dict[row["file"]] += 1
+            if file in files_dict:
+                files_dict[file] += 1
             else:
-                files_dict[row["file"]] = 0
+                files_dict[file] = 0
 
             path = Path(row["split"]) / label / f"{Path(row['file']).stem}_{files_dict[row['file']]:03d}"
             if self.saving_on_disk:
