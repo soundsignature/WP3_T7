@@ -22,8 +22,15 @@ if __name__ == "__main__":
     EXP_NAME = os.getenv("EXP_NAME")
     NEW_ONTOLOGY = os.getenv("NEW_ONTOLOGY").split(',')
     UNWANTED_LABELS = os.getenv("UNWANTED_LABELS").split(',')
-    TEST_SIZE = os.getenv("TEST_SIZE")
+    TEST_SIZE = float(os.getenv("TEST_SIZE"))
 
+    if len(NEW_ONTOLOGY) == 1:
+        if NEW_ONTOLOGY[0] == '':
+            NEW_ONTOLOGY = None
+    
+    if len(UNWANTED_LABELS) == 1:
+        if UNWANTED_LABELS[0] == '':
+            UNWANTED_LABELS = None
     sr =32000
     ecoss_list = []
     yaml_content = load_yaml(YAML_PATH)

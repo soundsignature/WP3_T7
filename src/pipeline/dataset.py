@@ -24,6 +24,7 @@ import wave
 from mutagen.flac import FLAC
 from tqdm import tqdm
 import logging
+import torchaudio
 
 from .utils import SuperpositionType
 
@@ -78,8 +79,11 @@ class EcossDataset:
         self.duration = duration
         self.segment_length = int(self.duration * self.sr)
         self.saving_on_disk = saving_on_disk
-        self.path_annots = os.path.join(self.path_dataset, 'samples for training', 'annotations.csv')
         self.dataset_name = os.path.basename(os.path.normpath(self.path_dataset))
+        if os.path.exists(os.path.join(self.path_dataset, 'samples for training')):
+            self.path_dataset = os.path.join(self.path_dataset, 'samples for training')
+        self.path_annots = os.path.join(self.path_dataset, 'annotations.csv')
+        
         self.df = pd.read_csv(self.path_annots, sep=";")
 
     @staticmethod
@@ -134,7 +138,6 @@ class EcossDataset:
         self.df["file"] = ''
         for i, row in self.df.iterrows():
             self.df.at[i, "file"] = os.path.join(self.path_dataset,
-                                                 'samples for training',
                                                  self.df.at[i, 'reference'])
 
 
@@ -152,21 +155,10 @@ class EcossDataset:
         indexes_delete = []
         for i, row in self.df.iterrows():
             if os.path.isfile(row["file"]):
-                if row["file"].endswith('.wav'):
-                    with wave.open(row["file"], 'rb') as wav_file:
-                        sr = wav_file.getframerate()
-                        if sr < self.sr:
-                            indexes_delete.append(i)
-                            # print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
-                            logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
-                elif row["file"].endswith('.flac'):
-                    audio = FLAC(row["file"])
-                    sr = audio.info.sample_rate
-                    if sr < self.sr:
-                        indexes_delete.append(i)
-                        logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
-                else:
-                    raise ValueError("Unsupported file format. Only WAV and FLAC are supported.")
+                _,sr = torchaudio.load(row["file"],num_frames = 1)
+                if sr < self.sr:
+                    indexes_delete.append(i)
+                    logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
             else:
                 indexes_delete.append(i)
                 logger.info(f"File {row['file']} in the folder is missing")
@@ -224,7 +216,10 @@ class EcossDataset:
         Returns:
         None
         """
+        if "overlapping" not in self.df.columns:
+            self.df["overlapping"] = False
         overlap_info_processed = self._extract_overlapping_info()
+        
         self.df["overlap_info_processed"] = overlap_info_processed
         # self.df.dropna(subset=["final_source"],inplace=True)
         self.df["to_delete"] = False
@@ -239,6 +234,8 @@ class EcossDataset:
                 continue
             segments_to_delete = []
             for overlap_idx,tmin,tmax in self.df.loc[eval_idx]["overlap_info_processed"]:
+                tmin = float(tmin)
+                tmax = float(tmax)
                 if overlap_idx not in self.df.index:
                     continue
                 if self.df.loc[eval_idx]["final_source"] != self.df.loc[overlap_idx]["final_source"]:
@@ -317,7 +314,10 @@ class EcossDataset:
         """
         # Dropping rows that contain nan in label_source
         self.df = self.df.dropna(subset=['label_source'])
+        
 
+        if not labels:
+            labels = None
         if labels != None:
             for i, row in self.df.iterrows():
                 for label in labels:
@@ -353,25 +353,28 @@ class EcossDataset:
             logger.info(f"Files will be saved in {self.path_store_data}")
         else:
             logger.info(f"Files will not be saved in disk")
-
+        file = ""
         # Iterate over all signals, sr, paths, labels
         for _,row in tqdm(self.df.iterrows(), total=self.df.shape[0],desc='Processing Audios'):
             # Load audio file
-            signal, original_sr = sf.read(row["file"])
+            if file != row["file"]:
+                file  = row["file"]
+                original_signal, original_sr = sf.read(file)
+
             if "final_source" in row.index:
                 label = row["final_source"]
             else:
                 label = row["label_source"]
             split = row["split"]
             # Extract only the label segment
-            signal = signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
+            signal = original_signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
             # Process the signal
             segments = self.process_data(signal, original_sr)
             # Count how many times
-            if row["file"] in files_dict:
-                files_dict[row["file"]] += 1
+            if file in files_dict:
+                files_dict[file] += 1
             else:
-                files_dict[row["file"]] = 0
+                files_dict[file] = 0
 
             path = Path(row["split"]) / label / f"{Path(row['file']).stem}_{files_dict[row['file']]:03d}"
             if self.saving_on_disk:
@@ -673,7 +676,7 @@ class EcossDataset:
             if pd.isna(row["overlapping"]):
                 overlap_info_processed.append([])
                 continue
-            overlap_info_processed.append(self._parse_overlapping_field(row["overlap_info"]))
+            overlap_info_processed.append(self._parse_overlapping_field(str(row["overlap_info"])))
         return overlap_info_processed
 
 
@@ -805,6 +808,7 @@ class EcossDataset:
         Returns:
         list of lists: A list of [tmin, tmax] pairs representing the subevents.
         """
+        event = [float(x) for x in event]
         tmin, tmax = event
         subevents = []
         start = tmin

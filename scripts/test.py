@@ -26,6 +26,14 @@ if __name__ == "__main__":
     PATH_MODEL_TEST = os.getenv("PATH_MODEL_TEST")
     TEST_SIZE = os.getenv("TEST_SIZE")
 
+    if len(NEW_ONTOLOGY) == 1:
+        if NEW_ONTOLOGY[0] == '':
+            NEW_ONTOLOGY = None
+    
+    if len(UNWANTED_LABELS) == 1:
+        if UNWANTED_LABELS[0] == '':
+            UNWANTED_LABELS = None
+
     sr =32000
     ecoss_list = []
     yaml_content = load_yaml(YAML_PATH)
