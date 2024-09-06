@@ -18,8 +18,8 @@ model_name: mn10_as
 optimizer: adam
 lr: 0.001
 patience: 4
-batch_size: 8
-n_epochs: 20
+batch_size: 64
+n_epochs: 10
 
 #EcossDataset
 sr: 32000
