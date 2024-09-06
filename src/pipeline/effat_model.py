@@ -63,7 +63,7 @@ class HelperDataset(Dataset):
         self.duration = duration
         self.mel = mel
         self.classes = os.listdir(self.path_data)
-        data = []
+        data, labels = [], []
 
         if not label_to_idx:
             self.label_to_idx = {cls: i for i, cls in enumerate(self.classes)}
@@ -74,9 +74,10 @@ class HelperDataset(Dataset):
             files = [os.path.join(self.path_data, cls, file) for file in os.listdir(os.path.join(self.path_data, cls))]
             for file in files:
                 data.append((file, self.label_to_idx[cls]))
-
+                labels.append(self.label_to_idx[cls])
+        
         self.data = data
-
+        self.labels = labels
 
     def __len__(self):
         return len(self.data)
@@ -139,23 +140,32 @@ class EffAtModel():
                                       duration=self.yaml["duration"], mel=self.mel,
                                       train=True,
                                       label_to_idx=None)
+        logger.debug("Training dataset obtained")
+
         dataset_test = HelperDataset(path_data = self.data_path, sr=self.yaml["sr"],
                                      duration=self.yaml["duration"], mel=self.mel,
                                      train=False,
                                      label_to_idx=None)
+        logger.debug("Testing dataset obtained")
+        
 
         # Create the WeightedRandomSampler for unbalanced datasets
-        train_labels = [label for _, label, _ in dataset_train]
+        train_labels = dataset_train.labels
+        logger.debug("Training labels obtained")
         class_counts = np.bincount(train_labels)
+        logger.debug("Class counts obtained")
         class_weights = 1. / class_counts
         samples_weights = class_weights[train_labels]
         samples_weights = torch.FloatTensor(samples_weights)
         class_weights = torch.FloatTensor(class_weights).to(self.device)
+        logger.debug("Everything set for the WeightedRandomSampler")
 
         train_sampler = WeightedRandomSampler(weights=samples_weights, num_samples=len(samples_weights), replacement=True)
+        logger.debug("WRS obtained")
 
         train_dataloader = DataLoader(dataset=dataset_train, sampler=train_sampler, batch_size=self.yaml["batch_size"])
         test_dataloader = DataLoader(dataset=dataset_test, batch_size=self.yaml["batch_size"])  # Not doing weighted samples for testing
+        logger.debug("DLs obtained")
 
         return train_dataloader, test_dataloader, dataset_train.label_to_idx
 
@@ -177,13 +187,14 @@ class EffAtModel():
 
         # Begin the training
         self.model.train()
+        logging.info("Model set to train mode")
         if self.yaml["optimizer"].lower() == "adam":
             optimizer = optim.Adam(self.model.parameters(), lr=self.yaml["lr"])
         else:
             optimizer = optim.SGD(self.model.parameters(), lr=self.yaml["lr"])
 
         criterion = nn.CrossEntropyLoss()
-
+        logging.info("Criterion and optimizer selected")
         best_accuracy = 0.0
         epochs_without_improvement = 0
 
@@ -191,7 +202,7 @@ class EffAtModel():
         train_losses, test_losses = [], []
 
         train_dataloader, test_dataloader, label_encoder = self.load_aux_datasets()
-
+        logging.info("Dataloaders obtained")
         for i in tqdm(range(self.yaml["n_epochs"]), desc="Epoch"):
             self.model.train()
             running_loss = 0.0
