@@ -137,7 +137,7 @@ class EcossDataset:
         None (updates df atribute with an extra columnn named 'file')
         """
         self.df["file"] = ''
-        for i, row in self.df.iterrows():
+        for i, _ in self.df.iterrows():
             self.df.at[i, "file"] = os.path.join(self.path_dataset,
                                                  self.df.at[i, 'reference'])
 
