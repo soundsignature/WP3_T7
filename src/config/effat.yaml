@@ -26,4 +26,4 @@ sr: 32000
 duration: 1
 
 # If we want to test on train set
-test_on_train: True
+test_on_train: False
