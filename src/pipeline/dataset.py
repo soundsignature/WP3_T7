@@ -83,9 +83,7 @@ class EcossDataset:
         if os.path.exists(os.path.join(self.path_dataset, 'samples for training')):
             self.path_dataset = os.path.join(self.path_dataset, 'samples for training')
         self.path_annots = os.path.join(self.path_dataset, 'annotations.csv')
-        
         self.df = pd.read_csv(self.path_annots, sep=";")
-
 
     @staticmethod
     def concatenate_ecossdataset(dataset_list: list):
@@ -560,7 +558,8 @@ class EcossDataset:
         plt.bar(range(0, len(count_signatures)), count_signatures)
         plt.xticks(range(0, len(count_signatures)),
                    count_signatures.index.to_list(),
-                   horizontalalignment='center')
+                   horizontalalignment='center',
+                   rotation=45)
         plt.xlabel("Source")
         plt.ylabel("# of sound signatures")
         plt.show()
@@ -578,7 +577,8 @@ class EcossDataset:
         plt.bar(range(0, len(times)), times.values())
         plt.xticks(range(0, len(times)),
                    list(times.keys()),
-                   horizontalalignment='center')
+                   horizontalalignment='center',
+                   rotation=45)
         plt.xlabel("Source")
         plt.ylabel("Time (s)")
         plt.show()
