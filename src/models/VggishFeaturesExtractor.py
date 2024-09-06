@@ -10,7 +10,7 @@ from models.vggish_modules import vggish_input
 from models.vggish_modules import vggish_params
 from models.vggish_modules import vggish_slim
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 class VggishFeaturesExtractor():
     def __init__(self, sample_rate = None):
