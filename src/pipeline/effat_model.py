@@ -113,6 +113,7 @@ class EffAtModel():
         self.name_model = self.yaml["model_name"]
         self.num_classes = num_classes
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"The device used for training is {self.device}")
 
         if "dy" not in self.name_model:
             model = get_mn(pretrained_name=self.name_model)

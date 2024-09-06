@@ -83,7 +83,6 @@ class EcossDataset:
         if os.path.exists(os.path.join(self.path_dataset, 'samples for training')):
             self.path_dataset = os.path.join(self.path_dataset, 'samples for training')
         self.path_annots = os.path.join(self.path_dataset, 'annotations.csv')
-        
         self.df = pd.read_csv(self.path_annots, sep=";")
 
     @staticmethod
@@ -136,7 +135,7 @@ class EcossDataset:
         None (updates df atribute with an extra columnn named 'file')
         """
         self.df["file"] = ''
-        for i, row in self.df.iterrows():
+        for i, _ in self.df.iterrows():
             self.df.at[i, "file"] = os.path.join(self.path_dataset,
                                                  self.df.at[i, 'reference'])
 
@@ -329,9 +328,6 @@ class EcossDataset:
         # Once they are defined, we create the final column with the labels
         # Currently not saving, only overwritting the df parameter as this is the first step
         self.df["final_source"] = self.df["label_source"].apply(lambda x: x.split('|')[-1])
-
-
-
 
 
     def process_all_data(self) -> None:
@@ -562,7 +558,8 @@ class EcossDataset:
         plt.bar(range(0, len(count_signatures)), count_signatures)
         plt.xticks(range(0, len(count_signatures)),
                    count_signatures.index.to_list(),
-                   horizontalalignment='center')
+                   horizontalalignment='center',
+                   rotation=45)
         plt.xlabel("Source")
         plt.ylabel("# of sound signatures")
         plt.show()
@@ -573,14 +570,15 @@ class EcossDataset:
         times = dict()
         for _, row in self.df.iterrows():
             if row["final_source"] not in times.keys():
-                times[row["final_source"]] = row["tmax"] - row["tmin"]
+                times[row["final_source"]] = float(row["tmax"]) - float(row["tmin"])
             else:
-                times[row["final_source"]] += row["tmax"] - row["tmin"]
+                times[row["final_source"]] += float(row["tmax"]) - float(row["tmin"])
         plt.figure(figsize=(8,6))
         plt.bar(range(0, len(times)), times.values())
         plt.xticks(range(0, len(times)),
                    list(times.keys()),
-                   horizontalalignment='center')
+                   horizontalalignment='center',
+                   rotation=45)
         plt.xlabel("Source")
         plt.ylabel("Time (s)")
         plt.show()
@@ -593,7 +591,7 @@ class EcossDataset:
             df_test = self.df[self.df["split"] == "test"]
 
             # Number of sound signatures related
-            fig, ax = plt.subplots(ncols=2, figsize=(12,6))
+            _, ax = plt.subplots(ncols=2, figsize=(12,6))
             count_signatures_train = df_train["final_source"].value_counts()
             count_signatures_test = df_test["final_source"].value_counts()
             ax[0].bar(range(0, len(count_signatures_train)), count_signatures_train)
@@ -625,18 +623,18 @@ class EcossDataset:
             times_train = dict()
             times_test = dict()
 
-            for i, row in df_train.iterrows():
+            for _, row in df_train.iterrows():
                 if row["final_source"] not in times_train.keys():
-                    times_train[row["final_source"]] = row["tmax"] - row["tmin"]
+                    times_train[row["final_source"]] = float(row["tmax"]) - float(row["tmin"])
                 else:
-                    times_train[row["final_source"]] += row["tmax"] - row["tmin"]
-            for i, row in df_test.iterrows():
+                    times_train[row["final_source"]] += float(row["tmax"]) - float(row["tmin"])
+            for _, row in df_test.iterrows():
                 if row["final_source"] not in times_test.keys():
-                    times_test[row["final_source"]] = row["tmax"] - row["tmin"]
+                    times_test[row["final_source"]] = float(row["tmax"]) - float(row["tmin"])
                 else:
-                    times_test[row["final_source"]] += row["tmax"] - row["tmin"]
+                    times_test[row["final_source"]] += float(row["tmax"]) - float(row["tmin"])
 
-            fig, ax = plt.subplots(ncols=2, figsize=(12,6))
+            _, ax = plt.subplots(ncols=2, figsize=(12,6))
             ax[0].bar(range(0, len(times_train)), times_train.values())
             ax[1].bar(range(0, len(times_test)), times_test.values())
 
@@ -699,7 +697,7 @@ class EcossDataset:
             labels = []
 
             # Iterate through rows corresponding to the current parent file
-            for eval_idx, row in df[df["parent_file"] == file].iterrows():
+            for _, row in df[df["parent_file"] == file].iterrows():
                 segments.append([row['tmin'], row["tmax"]])
                 labels.append(row['final_source'])
 
