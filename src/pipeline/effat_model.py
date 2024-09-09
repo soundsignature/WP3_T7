@@ -145,9 +145,8 @@ class EffAtModel():
         dataset_test = HelperDataset(path_data = self.data_path, sr=self.yaml["sr"],
                                      duration=self.yaml["duration"], mel=self.mel,
                                      train=False,
-                                     label_to_idx=None)
+                                     label_to_idx=dataset_train.label_to_idx)
         logger.debug("Testing dataset obtained")
-        
 
         # Create the WeightedRandomSampler for unbalanced datasets
         train_labels = dataset_train.labels
@@ -158,6 +157,7 @@ class EffAtModel():
         samples_weights = class_weights[train_labels]
         samples_weights = torch.FloatTensor(samples_weights)
         class_weights = torch.FloatTensor(class_weights).to(self.device)
+
         logger.debug("Everything set for the WeightedRandomSampler")
 
         train_sampler = WeightedRandomSampler(weights=samples_weights, num_samples=len(samples_weights), replacement=True)
@@ -261,6 +261,7 @@ class EffAtModel():
 
                     _, predicted = torch.max(outputs, 1)
                     total += labels.size(0)
+
                     correct += (predicted == labels).sum().item()
                     all_preds.extend(predicted.cpu().numpy())
                     all_labels.extend(labels.cpu().numpy())
