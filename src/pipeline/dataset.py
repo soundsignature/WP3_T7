@@ -288,7 +288,7 @@ class EcossDataset:
         idxs_to_drop = []
         for i, row in self.df.iterrows():
             for label in unwanted_labels:
-                if label in row["final_source"]:
+                if label.lower() == row["final_source"].lower():
                     idxs_to_drop.append(i)
 
         self.df = self.df.drop(idxs_to_drop)
