@@ -34,6 +34,11 @@ from torch.optim.lr_scheduler import OneCycleLR
 from torch.utils.data import Dataset
 import torchaudio
 
+import sys
+PROJECT_FOLDER = os.path.dirname(__file__).replace('/pipeline', '/models')
+PARENT_PROJECT_FOLDER = os.path.dirname(PROJECT_FOLDER)
+sys.path.append(PARENT_PROJECT_FOLDER)
+
 from models.passt.base import get_model
 from models.passt.preprocess import AugmentMelSTFT
 from models.passt.wrapper import PasstBasicWrapper
