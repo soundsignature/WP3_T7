@@ -100,23 +100,30 @@ class VggishModel():
         self.plot_results(set = 'test', saving_folder = results_folder, y_true = Y, y_pred = Y_pred)
         
 
-    def inference(self,path_data,results_folder):
+    def inference(self,path_data,results_folder,path_model=None):
         sr = self.yaml.get('desired_sr')
         duration = self.yaml.get('desired_duration')
-        X = process_data_for_inference(path_audio= path_data, desired_sr=sr, desired_duration=duration)
+        segments = process_data_for_inference(path_audio= path_data, desired_sr=sr, desired_duration=duration)
+        X = []
+        for segment in tqdm(segments, total = len(segments), desc = "Features extraction"):
+            X.append(self.get_features(segment))
         if self.yaml.get('model_path'):
             self.model = joblib.load(self.yaml.get('model_path'))
         else:
             logger.error('Error. model_path missing in the yaml configuration file')
             exit()
-        predictions = []
+        predictions = {}
+        predictions["class by time interval"] = {}
+        s = 0
         for x in X:
+            x = x.reshape(1,-1)
             y = self.model.predict(x)
             labels_mapping_path = self.yaml.get('labels_mapping_path')
             with open(labels_mapping_path, 'r') as file:
                 label_mapping = json.load(file)
                 y= np.array([label_mapping[str(label)] for label in y])
-                predictions.append(y)
+                predictions["class by time interval"][f'\n{s}-{s+1}'] = y[0]
+                s+=1
         with open(os.path.join(results_folder, 'predictions.json'), "w") as f:
             json.dump(predictions, f)
 
