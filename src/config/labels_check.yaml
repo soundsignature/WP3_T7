@@ -1,0 +1,20 @@
+# Augment mel
+freqm: 0
+timem: 0
+n_mels: 128
+win_length: 800
+hopsize: 320
+n_fft: 1024
+fmin: 0.0
+fmax: null
+fmin_aug_range: 10
+fmax_aug_range: 2000
+
+# Duration threshold
+threshold: 5
+
+# Type of source
+source: Delphinids
+
+# Signal parameters
+sr: 48000
