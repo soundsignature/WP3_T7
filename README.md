@@ -56,6 +56,11 @@ MODEL_TYPE = # effat passt or vggish
 INFERENCE_DATA_PATH = path/to/file/to/predict
 PATH_MODEL_TEST = path/to/trained/model/weights
 
+# Check labels
+DATASET_PATH_CHECK = path/to/dataset/to/analyze
+YAML_LABELS_CHECK = path/to/specific/yaml
+STORE_PATH_CHECK = path/where/the/labels/are/stored
+
 ```
 --------------------------------------------------------------
 
