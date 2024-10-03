@@ -11,6 +11,7 @@ from tqdm import tqdm
 import logging
 import os
 import sys
+import torch
 from dotenv import load_dotenv
 
 PROJECT_FOLDER = os.path.dirname(__file__).replace('/src', '/pipeline')
@@ -73,34 +74,59 @@ class AnnotationsChecker():
         return durations      
 
 
-    def plot_filtered_signals(self, path_store: str, resample: bool = False):
+    def plot_filtered_signals(self, path_store: str, cut_signal: float = 0, resample: bool = False):
         for i, row in tqdm(self.df.iterrows()):
             filename = row["reference"]
             filepath = os.path.join(self.dataset_path, 'samples for training', filename)
 
             y, sr = librosa.load(filepath, sr=None)
+            print(f"SR: {sr}")
             
             if resample == True:
-                if sr > self.desired_sr:
+                if sr >= self.desired_sr:
                     y = librosa.resample(y, orig_sr=sr, target_sr=self.desired_sr)
                     sr = self.desired_sr
                 else:
                     continue
                 
-            y = y[int(row["tmin"]*sr):int(row["tmax"]*sr)]   
-            S = np.abs(librosa.stft(y))
-            S_dB = librosa.amplitude_to_db(S, ref=np.max)
+            y = y[int(row["tmin"]*sr):int(row["tmax"]*sr)]
 
-            plt.figure(figsize=(10, 4))
-            librosa.display.specshow(S_dB, sr=sr, x_axis='time', y_axis='linear')
-            plt.colorbar(format='%+2.0f dB')
-            plt.title(filename + '; ' + 'tmin: ' + str(row["tmin"]) + '; tmax:' + str(row["tmax"]) + f'; fmin: {row["fmin"]}; fmax: {row["fmax"]}')
-            plt.tight_layout()
-            ax = plt.gca()
-            rect = Rectangle((0.1, row["fmin"]), row["tmax"]-1, row["fmax"]-row["fmin"], linewidth=1, edgecolor='r', facecolor='none')
-            ax.add_patch(rect)
-            plt.savefig(os.path.join(path_store, f"{filename}_{row['tmin']}_{row['tmax']}.png"))
-            plt.close()
+            if cut_signal != 0:
+                y = torch.Tensor(y)
+                signal_length = y.size(0)  # Longitud total de la señal
+                window_size = int(cut_signal * signal_length)
+                y = y.unfold(0, window_size, window_size)
+                y = y.numpy()
+                for w in tqdm(range(y.shape[0])):
+                    window = y[w, :]
+                    S = np.abs(librosa.stft(window))
+                    S_dB = librosa.amplitude_to_db(S, ref=np.max)
+
+                    plt.figure(figsize=(10, 4))
+                    librosa.display.specshow(S_dB, sr=sr, x_axis='time', y_axis='linear')
+                    plt.colorbar(format='%+2.0f dB')
+                    plt.title(filename + '; ' + 'tmin: ' + str(row["tmin"]) + '; tmax:' + str(row["tmax"]) + f'; fmin: {row["fmin"]}; fmax: {row["fmax"]}')
+                    plt.tight_layout()
+                    ax = plt.gca()
+                    rect = Rectangle((0.1, row["fmin"]), row["tmax"]-1, row["fmax"]-row["fmin"], linewidth=1, edgecolor='r', facecolor='none')
+                    ax.add_patch(rect)
+                    plt.savefig(os.path.join(path_store, f"{filename}_{row['tmin']}_{row['tmax']}_chunk_{w}.png"))
+                    plt.close()
+
+            else:
+                S = np.abs(librosa.stft(y))
+                S_dB = librosa.amplitude_to_db(S, ref=np.max)
+
+                plt.figure(figsize=(10, 4))
+                librosa.display.specshow(S_dB, sr=sr, x_axis='time', y_axis='linear')
+                plt.colorbar(format='%+2.0f dB')
+                plt.title(filename + '; ' + 'tmin: ' + str(row["tmin"]) + '; tmax:' + str(row["tmax"]) + f'; fmin: {row["fmin"]}; fmax: {row["fmax"]}')
+                plt.tight_layout()
+                ax = plt.gca()
+                rect = Rectangle((0.1, row["fmin"]), row["tmax"]-1, row["fmax"]-row["fmin"], linewidth=1, edgecolor='r', facecolor='none')
+                ax.add_patch(rect)
+                plt.savefig(os.path.join(path_store, f"{filename}_{row['tmin']}_{row['tmax']}.png"))
+                plt.close()
 
 
 if __name__ == "__main__":
@@ -119,4 +145,4 @@ if __name__ == "__main__":
     top_durations = checker.get_sorted_durations()
     print(f"The top five durations are {top_durations}")
     checker.filter_by_threshold()
-    checker.plot_filtered_signals(path_store=path_store, resample=True)
+    checker.plot_filtered_signals(path_store=path_store, cut_signal=0, resample=True)

@@ -14,7 +14,7 @@ fmax_aug_range: 2000
 threshold: 5
 
 # Type of source
-source: Delphinids
+source: Sonar
 
 # Signal parameters
-sr: 48000
+sr: 32000
