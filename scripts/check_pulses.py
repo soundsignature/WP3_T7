@@ -64,7 +64,6 @@ class AnnotationsChecker():
 
     def filter_by_threshold(self):
         self.df = self.df[self.df["duration"] > self.threshold]
-    
 
     def get_sorted_durations(self):
         durations = self.df["duration"].sort_values(ascending = False)
