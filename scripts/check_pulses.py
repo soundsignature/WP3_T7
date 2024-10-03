@@ -51,7 +51,7 @@ class AnnotationsChecker():
 
 
     def filter_pulses(self):
-        types = ["Pulse", "FrequencyModulation", "Transient", "Undefined"]
+        types = ["Pulse", "FrequencyModulation", "Transient"]
         indexes = []
         for i, row in self.df.iterrows():
             for t in types:
