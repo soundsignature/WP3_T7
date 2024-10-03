@@ -61,7 +61,7 @@ class EcossDataset:
     several datasets from the FTP.
     """
     def __init__(self, path_dataset: str, path_store_data: str, pad_mode: str,
-                 sr: float, duration: float, saving_on_disk: bool) -> None:
+                 sr: float, duration: float, saving_on_disk: bool, desired_margin: float) -> None:
         """The constructor for the EcossDataset class.
 
         Args:
@@ -71,6 +71,7 @@ class EcossDataset:
             sr (float): The sampling rate that the generated data will have. If signals with lower sampling rate are found, they are discarded.
             duration (float): The desired duration for the clips generated for the AI models.
             saving_on_disk (bool): If set to True, the generated data will be saved on disk.
+            desired_margin (float): Is used in case that we cant visualize in the spectrogram the whole signature, and if we cant visualize this percentage we discard the signal (e.g 0.5)
         """
         self.path_dataset = path_dataset
         self.path_store_data = path_store_data
@@ -79,6 +80,7 @@ class EcossDataset:
         self.duration = duration
         self.segment_length = int(self.duration * self.sr)
         self.saving_on_disk = saving_on_disk
+        self.desired_margin = desired_margin
         self.dataset_name = os.path.basename(os.path.normpath(self.path_dataset))
         if os.path.exists(os.path.join(self.path_dataset, 'samples for training')):
             self.path_dataset = os.path.join(self.path_dataset, 'samples for training')
@@ -107,18 +109,20 @@ class EcossDataset:
         padding0 = dataset_list[0].pad_mode
         save0 = dataset_list[0].saving_on_disk
         path_store0 = dataset_list[0].path_store_data
+        desired_margin0 = dataset_list[0].desired_margin
         #Start populatinf DataFrame list
         df_list = [dataset_list[0].df]
         #Iterate over list to check appropiate values, exiting function it variables do not match
         for dataset in dataset_list[1:]:
-            if dataset.sr != sr0 or dataset.duration != duration0 or dataset.pad_mode != padding0 or dataset.saving_on_disk != save0:
+            if dataset.sr != sr0 or dataset.duration != duration0 or dataset.pad_mode != padding0 or dataset.saving_on_disk != save0 or dataset.desired_margin != desired_margin0:
                 logger.error("The datasets selected do not have the same characteristics")
                 return
             else:
                 df_list.append(dataset.df)
         #Create EcossDataset object with concatenated info
         ConcatenatedEcoss = EcossDataset(path_dataset=path_dataset0, path_store_data=path_store0,
-                                         pad_mode=padding0, sr=sr0, duration=duration0, saving_on_disk=save0)
+                                         pad_mode=padding0, sr=sr0, duration=duration0, saving_on_disk=save0,
+                                         desired_margin=desired_margin0)
         ConcatenatedEcoss.df = pd.concat(df_list,ignore_index=True)
         return ConcatenatedEcoss
 
@@ -165,6 +169,44 @@ class EcossDataset:
         self.df.drop(indexes_delete, inplace=True)
         self.df.reset_index(drop=True, inplace=True)
 
+
+    def filter_by_freqlims(self) -> None:
+        """
+        This function filters the signals that we will not be able to visualize due to resampling. There are three main cases:
+
+        1. If the fmin of the sound annotated is bigger than our maximum fmax (sr / 2) we will not be able to see this, so the signal must be discarded
+        2. If the fmax of the sound annotated is lower than our maximum fmax (sr / 2) we will be able to visualize the whole pattern, so we keep it
+        3. If our maximum fmax (sr / 2) is between the fmin and the fmax of the sound annotated, we will use the margin to see the percentage of the signal we could
+            keep and discard if is lower than the desired one.
+    
+        The logic is applied to each row in the df attribute, regardless of the type of sound (e.g. delphinid, ship, etc). It only filters the BackgroundNoise.
+        
+        Returns:
+        None (updates df attribute)
+        """
+        indexes_delete = []
+        fmax_own = self.sr / 2  
+        for i, row in self.df.iterrows():
+            if row["label_source"] != "BackgroundNoise":
+                if row["fmin"] >= fmax_own:
+                    indexes_delete.append(i)
+                    logger.info(f"Index {i} with type {row['label_source']} from file {row['file']} will be deleted because the fmin of the sound is {row['fmin']} and we can only visualize until {fmax_own}")
+                    continue
+                
+                if row["fmax"] <= fmax_own:
+                    continue
+
+                dif_freqs = row["fmax"] - row["fmin"]
+                margin_freqs = fmax_own - row["fmin"]
+                margin_pct = margin_freqs / dif_freqs
+                
+                if margin_pct < self.desired_margin:
+                    logger.info(f"Index {i} with type {row['label_source']} from file {row['file']} will be deleted because we will be able to visualize {margin_pct} of the signal and we wanted atleast {self.desired_margin}")
+                    indexes_delete.append(i)
+            
+        self.df.drop(indexes_delete, inplace=True)
+        self.df.reset_index(drop=True, inplace=True)
+            
 
     def split_train_test_balanced(self, test_size=0.2, random_state=None) -> None:
         """

@@ -23,6 +23,7 @@ if __name__ == "__main__":
     NEW_ONTOLOGY = os.getenv("NEW_ONTOLOGY").split(',')
     UNWANTED_LABELS = os.getenv("UNWANTED_LABELS").split(',')
     TEST_SIZE = float(os.getenv("TEST_SIZE"))
+    DESIRED_MARGIN = float(os.getenv("DESIRED_MARGIN"))
 
     if len(NEW_ONTOLOGY) == 1:
         if NEW_ONTOLOGY[0] == '':
@@ -36,7 +37,7 @@ if __name__ == "__main__":
     yaml_content = load_yaml(YAML_PATH)
     for annot_path in ANNOTATIONS_PATHS:
         print(annot_path)
-        ecoss_data1 = EcossDataset(annot_path, 'data/', 'zeros', sr, 1,"wav")
+        ecoss_data1 = EcossDataset(annot_path, 'data/', 'zeros', sr, 3,"wav", DESIRED_MARGIN)
         ecoss_data1.add_file_column()
         ecoss_data1.fix_onthology(labels=NEW_ONTOLOGY)
         ecoss_data1.filter_overlapping()
@@ -46,6 +47,7 @@ if __name__ == "__main__":
     ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
     length_prior_filter = len(ecoss_data.df)
     ecoss_data.filter_lower_sr()
+    ecoss_data.filter_by_freqlims()
     ecoss_data.generate_insights()
     ecoss_data.split_train_test_balanced(test_size=TEST_SIZE, random_state=27)
     signals,labels,split_info = ecoss_data.process_all_data()
