@@ -36,7 +36,7 @@ if __name__ == "__main__":
     yaml_content = load_yaml(YAML_PATH)
     for annot_path in ANNOTATIONS_PATHS:
         print(annot_path)
-        ecoss_data1 = EcossDataset(annot_path, 'data3/', 'zeros', sr, 3,"wav", 0.5)
+        ecoss_data1 = EcossDataset(annot_path, 'data/', 'zeros', sr, 3,"wav", 0.5)
         ecoss_data1.add_file_column()
         ecoss_data1.fix_onthology(labels=NEW_ONTOLOGY)
         ecoss_data1.filter_overlapping()
