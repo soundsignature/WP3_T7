@@ -13,7 +13,7 @@ from src.pipeline.utils import create_exp_dir, load_yaml
 from dotenv import load_dotenv
 import json
 
-if __name__ == "__main__":
+def main():
     load_dotenv()
     YAML_PATH = os.getenv("YAML_PATH")
     MODEL_TYPE = os.getenv("MODEL_TYPE")
@@ -37,4 +37,7 @@ if __name__ == "__main__":
 
 
     model.inference(results_folder=results_folder, path_model=PATH_MODEL_TEST, path_data=INFERENCE_DATA_PATH)
+
+if __name__ == "__main__":
+    main()
 

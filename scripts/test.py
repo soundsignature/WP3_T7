@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 
 
-if __name__ == "__main__":
+def main():
     load_dotenv()
     ANNOTATIONS_PATHS = os.getenv("ANNOTATIONS_PATHS").split(',')
     YAML_PATH = os.getenv("YAML_PATH")
@@ -69,4 +69,8 @@ if __name__ == "__main__":
 
     model.plot_processed_data()
     model.test(results_folder=results_folder, path_model=PATH_MODEL_TEST, path_data=data_path)
+
+if __name__ == "__main__":
+    main()
+
 
