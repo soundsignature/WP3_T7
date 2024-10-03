@@ -70,6 +70,8 @@ class AnnotationsChecker():
         durations = self.df["duration"].sort_values(ascending = False)
         plt.figure()
         plt.hist(durations, bins=100)
+        plt.xlabel("duration (s)")
+        plt.ylabel("number of labels")
         plt.show()
         return durations      
 
