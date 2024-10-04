@@ -130,7 +130,7 @@ class AnnotationsChecker():
                 plt.close()
 
 
-if __name__ == "__main__":
+def main():
     load_dotenv()
 
     dataset_path = os.getenv("DATASET_PATH_CHECK")
@@ -147,3 +147,7 @@ if __name__ == "__main__":
     print(f"The top five durations are {top_durations}")
     checker.filter_by_threshold()
     checker.plot_filtered_signals(path_store=path_store, cut_signal=0, resample=True)
+
+if __name__ == "__main__":
+    main()
+
