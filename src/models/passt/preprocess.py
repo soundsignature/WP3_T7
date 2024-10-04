@@ -56,8 +56,10 @@ class AugmentMelSTFT(nn.Module):
         x = torch.stft(x, self.n_fft, hop_length=self.hopsize, win_length=self.win_length,
                        center=True, normalized=False, window=self.window, return_complex=False)
         x = (x ** 2).sum(dim=-1)  # power mag
-        fmin = self.fmin + torch.randint(self.fmin_aug_range, (1,)).item()
-        fmax = self.fmax + self.fmax_aug_range // 2 - torch.randint(self.fmax_aug_range, (1,)).item()
+        fmin = self.fmin 
+        #+ torch.randint(self.fmin_aug_range, (1,)).item()
+        fmax = self.fmax 
+        # + self.fmax_aug_range // 2 - torch.randint(self.fmax_aug_range, (1,)).item()
         # don't augment eval data
         if not self.training:
             fmin = self.fmin

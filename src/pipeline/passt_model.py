@@ -475,6 +475,7 @@ class PasstModel():
 
             # load the weights into the transformer
             model.net.load_state_dict(state_dict)
+        model = torch.compile(model=model)
         return model
 
     def train_model(self,model,train_dataloader,test_dataloader,results_folder):
@@ -554,6 +555,7 @@ class PasstModel():
                 self.optimizer.step()
                 if scheduler:
                     scheduler.step()
+
 
             train_loss /= len(train_dataloader)
             train_losses.append(train_loss)
