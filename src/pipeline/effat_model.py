@@ -124,6 +124,9 @@ class EffAtModel():
         # Using the wrapper to modify the last layer and moving to device
         model = EffATWrapper(num_classes=num_classes, model=model, freeze=self.yaml["freeze"])
         model.to(self.device)
+        if self.yaml["compile"]:
+            model = torch.compile(model)
+        
         self.model = model
 
 

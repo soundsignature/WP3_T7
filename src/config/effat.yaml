@@ -13,6 +13,7 @@ fmax_aug_range: 2000
 # Model related
 freeze: False
 model_name: mn10_as
+compile: True # Whether to compile the model
 
 # Hyperparameters
 optimizer: adam

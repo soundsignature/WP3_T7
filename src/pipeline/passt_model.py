@@ -146,8 +146,6 @@ class PasstModel():
 
         train_dataloader, test_dataloader = self.load_train_test_datasets()
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         model = self.train_model(model,train_dataloader,test_dataloader,results_folder)
 
         self.test_model(model,train_dataloader,results_folder,title = "train_result")
@@ -170,8 +168,6 @@ class PasstModel():
             class_dict = json.load(f)
         self.n_classes = len(class_dict)
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         model.eval()
         logging.info("Weights succesfully loaded into the model")
         test_dataloader = DataLoader(HelperDataset(self.data_path / "train",duration = self.opt.duration,sr=self.opt.sr))
@@ -195,8 +191,6 @@ class PasstModel():
             class_dict = json.load(f)
         self.n_classes = len(class_dict)
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         model.eval()
         logging.info("Weights succesfully loaded into the model")
 
@@ -383,8 +377,6 @@ class PasstModel():
 
         train_dataloader, test_dataloader = self.load_train_test_datasets()
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         for dataset in [train_dataloader,test_dataloader]:
             dataset = dataset.dataset
             mel = model.mel
@@ -440,7 +432,8 @@ class PasstModel():
                     fmax=self.opt.fmax,
                     norm=self.opt.norm,
                     fmin_aug_range=self.opt.fmin_aug_range,
-                    fmax_aug_range=self.opt.fmax_aug_range
+                    fmax_aug_range=self.opt.fmax_aug_range,
+                    compiled_model=self.opt.compile
                     )
         else:
             raise ValueError("preprocess_type should be 'mel'")
@@ -475,7 +468,10 @@ class PasstModel():
 
             # load the weights into the transformer
             model.net.load_state_dict(state_dict)
-        model = torch.compile(model=model)
+        if self.opt.gpu:
+            model = model.cuda()
+        if self.opt.compile:
+            model = torch.compile(model=model)
         return model
 
     def train_model(self,model,train_dataloader,test_dataloader,results_folder):
