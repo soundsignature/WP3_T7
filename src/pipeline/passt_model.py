@@ -209,7 +209,6 @@ class PasstModel():
                 start = time.time()
                 if self.opt.gpu:
                     audio_wave = audio_wave.cuda()
-                    target = target.cuda()
                 logits = model(audio_wave)
                 precentage = torch.nn.Softmax(dim=1)(logits)
                 _, predicted = torch.max(logits.data, 1)
@@ -457,21 +456,27 @@ class PasstModel():
 
 
         if self.opt.weights_path:
-            # load the custom weights model state dict
+        # load the custom weights model state dict
             state_dict = torch.load(self.opt.weights_path)
-
+            print(state_dict.keys())
+            # state_dict['model_state_dict']
+            remove_prefix = '_orig_mod.'
+            state_dict = {k[len(remove_prefix):] if k.startswith(
+                remove_prefix) else k: v for k, v in state_dict.items()}
             # I had to add this because apparently toch.save is adding somo prefix to configurations
             remove_prefix = 'net.'
             state_dict = {k[len(remove_prefix):] if k.startswith(
                 remove_prefix) else k: v for k, v in state_dict.items()}
-            state_dict. pop('device_proxy', None)
+            state_dict.pop('device_proxy', None)
 
             # load the weights into the transformer
-            model.net.load_state_dict(state_dict)
+            model.net.load_state_dict(state_dict,strict=True)
+
         if self.opt.gpu:
             model = model.cuda()
+
         if self.opt.compile:
-            model = torch.compile(model=model)
+            model = torch.compile(model=model,mode='max-autotune')
         return model
 
     def train_model(self,model,train_dataloader,test_dataloader,results_folder):

@@ -96,3 +96,10 @@ It is possible to compile the Effat and Passt models before using them for optim
 ```True``` in the .yaml configuration file. Please note that this feature requires a Linux environment. If you are using Windows, you can utilize the Windows Subsystem for Linux (WSL).
 ### Install WSL
 To install WSL, follow the instructions provided at [Microsoft's official documentation](https://learn.microsoft.com/en-us/windows/wsl/install). Once WSL is installed, proceed with the steps below to install this repository in a Linux environment. This process has been tested on Ubuntu 22.04.
+
+Windows by default limits the RAM capacity of WSL to 50% of the RAM of the machine. You'll need to add a memory=48GB (or your preferred setting) to a .wslconfig file that is placed in your Windows home directory ```(\Users\{username}\)```.
+
+```
+[wsl2]
+memory=48GB
+```
