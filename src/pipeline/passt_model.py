@@ -567,7 +567,8 @@ class PasstModel():
                 best_val_loss = val_loss
                 early_stopping_counter = 0
                 best_model_state_dict = deepcopy(model.state_dict())
-                torch.save(best_model_state_dict, os.path.join(results_folder, f'checkpoint_{epoch + 1}.pth'))
+                if self.opt.save_checkpoints:
+                    torch.save(best_model_state_dict, os.path.join(results_folder, f'checkpoint_{epoch + 1}.pth'))
             else:
                 early_stopping_counter += 1
                 if early_stopping_counter >= self.opt.patience:
