@@ -125,7 +125,7 @@ class EffAtModel():
         model = EffATWrapper(num_classes=num_classes, model=model, freeze=self.yaml["freeze"])
         model.to(self.device)
         if self.yaml["compile"]:
-            model = torch.compile(model)
+            model = torch.compile(model,mode = "reduce-overhead")
         
         self.model = model
 
