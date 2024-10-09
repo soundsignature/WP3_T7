@@ -188,7 +188,7 @@ class PasstModel():
             path_data (str): Path to the dataset.
         """
         logging.info("Infering with PASST")
-        results_folder = Path(results_folder)
+        self.results_folder = Path(results_folder)
         path_model = Path(path_model)
         self.opt.weights_path = path_model
         with open(str(path_model.parent / "class_dict.json"),"r",encoding="utf-8") as f:
@@ -230,7 +230,7 @@ class PasstModel():
                         )
 
         logging.info(results)
-        with open(str(Path(results_folder) / "results.json"), "w", encoding="utf-8") as f:
+        with open(str(Path(results_folder) / "predictions.json"), "w", encoding="utf-8") as f:
             json.dump(results, f, default=str)
 
 
