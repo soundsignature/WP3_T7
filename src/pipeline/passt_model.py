@@ -458,7 +458,6 @@ class PasstModel():
         if self.opt.weights_path:
         # load the custom weights model state dict
             state_dict = torch.load(self.opt.weights_path)
-            print(state_dict.keys())
             # state_dict['model_state_dict']
             remove_prefix = '_orig_mod.'
             state_dict = {k[len(remove_prefix):] if k.startswith(
