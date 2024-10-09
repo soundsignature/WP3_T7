@@ -9,9 +9,12 @@ from src.pipeline.passt_model import PasstModel
 from src.pipeline.effat_model import EffAtModel
 from src.pipeline.vggish_model import VggishModel
 from src.pipeline.dataset import EcossDataset
-from src.pipeline.utils import create_exp_dir, load_yaml
-from dotenv import load_dotenv
+from src.pipeline.utils import create_exp_dir, load_yaml, visualize_inference
+
 import json
+from matplotlib import pyplot as plt
+from dotenv import load_dotenv
+
 
 def main():
     load_dotenv()
@@ -37,6 +40,7 @@ def main():
 
 
     model.inference(results_folder=results_folder, path_model=PATH_MODEL_TEST, path_data=INFERENCE_DATA_PATH)
+    visualize_inference(path_json=os.path.join(model.results_folder, 'predictions.json'), path_audio=INFERENCE_DATA_PATH, path_yaml=YAML_PATH)
 
 if __name__ == "__main__":
     main()
