@@ -408,8 +408,7 @@ class EffAtModel():
             y, _ = process_audio_for_inference(path_audio=path_data,
                                                 desired_sr=self.yaml["sr"],
                                                 desired_duration=self.yaml["duration"])
-            
-            self.model(self.mel(y[:, 0]).unsqueeze(0).to(self.device)) 
+        
             for i in tqdm(range(y.shape[1])):
                 output, embeddings = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))  # Saving embeddings but not necessary
                 outs.append(output)
