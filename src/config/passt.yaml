@@ -1,9 +1,11 @@
 
 # General Configuration
 batch_size: 8  # Number of samples per batch during training
-gpu: False  # Whether to use GPU for training (True/False)
+gpu: True  # Whether to use GPU for training (True/False)
 freeze_layers: False  # Whether to freeze layers of the model during training
-num_epochs: 1  # Number of epochs to train the model
+num_epochs: 10  # Number of epochs to train the model
+compile: True # Whether to compile the model. If True fmin_aug_range and fmax_aug_range are not used (True/False)
+save_checkpoints : False # Whether to save checkpoints during training (True/False)
 
 # Preprocessing Parameters
 preprocess_type: mel  # Type of preprocessing to apply (e.g., 'mel' for Mel spectrogram)

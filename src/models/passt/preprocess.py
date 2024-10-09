@@ -14,7 +14,7 @@ epsilon = 10e-8  # fudge factor for normalization
 
 class AugmentMelSTFT(nn.Module):
     def __init__(self, n_mels=128, sr=32000, win_length=800, hopsize=320, n_fft=1024, freqm=48, timem=192,
-                 htk=False, fmin=0.0, fmax=None, norm=1, fmin_aug_range=1, fmax_aug_range=1000):
+                 htk=False, fmin=0.0, fmax=None, norm=1, fmin_aug_range=1, fmax_aug_range=1000, compiled_model = False):
         torch.nn.Module.__init__(self)
         # adapted from: https://github.com/CPJKU/kagglebirds2020/commit/70f8308b39011b09d41eb0f4ace5aa7d2b0e806e
         # Similar config to the spectrograms used in AST: https://github.com/YuanGongND/ast
@@ -31,6 +31,7 @@ class AugmentMelSTFT(nn.Module):
         self.fmax = fmax
         self.norm = norm
         self.hopsize = hopsize
+        self.compiled_model = compiled_model
         self.register_buffer('window',
                              torch.hann_window(win_length, periodic=False),
                              persistent=False)
@@ -56,8 +57,13 @@ class AugmentMelSTFT(nn.Module):
         x = torch.stft(x, self.n_fft, hop_length=self.hopsize, win_length=self.win_length,
                        center=True, normalized=False, window=self.window, return_complex=False)
         x = (x ** 2).sum(dim=-1)  # power mag
-        fmin = self.fmin + torch.randint(self.fmin_aug_range, (1,)).item()
-        fmax = self.fmax + self.fmax_aug_range // 2 - torch.randint(self.fmax_aug_range, (1,)).item()
+        if self.compiled_model:
+            fmin = self.fmin
+            fmax = self.fmax 
+        else:
+            fmin = self.fmin + torch.randint(self.fmin_aug_range, (1,)).item()
+            fmax = self.fmax + self.fmax_aug_range // 2 - torch.randint(self.fmax_aug_range, (1,)).item()
+
         # don't augment eval data
         if not self.training:
             fmin = self.fmin

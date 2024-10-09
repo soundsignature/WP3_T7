@@ -124,6 +124,9 @@ class EffAtModel():
         # Using the wrapper to modify the last layer and moving to device
         model = EffATWrapper(num_classes=num_classes, model=model, freeze=self.yaml["freeze"])
         model.to(self.device)
+        if self.yaml["compile"]:
+            model = torch.compile(model,mode = "reduce-overhead")
+        
         self.model = model
 
 
@@ -319,7 +322,13 @@ class EffAtModel():
 
         # Load the weights
         checkpoint = torch.load(path_model)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
+        model_state_dict = checkpoint['model_state_dict']
+        if not self.yaml["compile"]:
+            remove_prefix = '_orig_mod.'
+            model_state_dict = {k[len(remove_prefix):] if k.startswith(
+                    remove_prefix) else k: v for k, v in model_state_dict.items()}
+        self.model.load_state_dict(model_state_dict)
+        
         self.model.eval()
         self.mel.eval()
         logger.info(f"Weights succesfully loaded into the model")
@@ -378,7 +387,13 @@ class EffAtModel():
         # Load the model
         checkpoint = torch.load(path_model)
         # Load the state dicts into the model
-        self.model.load_state_dict(checkpoint['model_state_dict'])
+        model_state_dict = checkpoint['model_state_dict']
+        if not self.yaml["compile"]:
+            remove_prefix = '_orig_mod.'
+            model_state_dict = {k[len(remove_prefix):] if k.startswith(
+                    remove_prefix) else k: v for k, v in model_state_dict.items()}
+        self.model.load_state_dict(model_state_dict)
+        
         self.model.eval()
         self.mel.eval()
         # Obtain the class mapping
@@ -393,7 +408,8 @@ class EffAtModel():
             y, _ = process_audio_for_inference(path_audio=path_data,
                                                 desired_sr=self.yaml["sr"],
                                                 desired_duration=self.yaml["duration"])
-
+            
+            self.model(self.mel(y[:, 0]).unsqueeze(0).to(self.device)) 
             for i in tqdm(range(y.shape[1])):
                 output, embeddings = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))  # Saving embeddings but not necessary
                 outs.append(output)

@@ -146,8 +146,6 @@ class PasstModel():
 
         train_dataloader, test_dataloader = self.load_train_test_datasets()
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         model = self.train_model(model,train_dataloader,test_dataloader,results_folder)
 
         self.test_model(model,train_dataloader,results_folder,title = "train_result")
@@ -170,8 +168,6 @@ class PasstModel():
             class_dict = json.load(f)
         self.n_classes = len(class_dict)
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         model.eval()
         logging.info("Weights succesfully loaded into the model")
         test_dataloader = DataLoader(HelperDataset(self.data_path / "train",duration = self.opt.duration,sr=self.opt.sr))
@@ -195,8 +191,6 @@ class PasstModel():
             class_dict = json.load(f)
         self.n_classes = len(class_dict)
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         model.eval()
         logging.info("Weights succesfully loaded into the model")
 
@@ -215,7 +209,6 @@ class PasstModel():
                 start = time.time()
                 if self.opt.gpu:
                     audio_wave = audio_wave.cuda()
-                    target = target.cuda()
                 logits = model(audio_wave)
                 precentage = torch.nn.Softmax(dim=1)(logits)
                 _, predicted = torch.max(logits.data, 1)
@@ -383,8 +376,6 @@ class PasstModel():
 
         train_dataloader, test_dataloader = self.load_train_test_datasets()
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         for dataset in [train_dataloader,test_dataloader]:
             dataset = dataset.dataset
             mel = model.mel
@@ -440,7 +431,8 @@ class PasstModel():
                     fmax=self.opt.fmax,
                     norm=self.opt.norm,
                     fmin_aug_range=self.opt.fmin_aug_range,
-                    fmax_aug_range=self.opt.fmax_aug_range
+                    fmax_aug_range=self.opt.fmax_aug_range,
+                    compiled_model=self.opt.compile
                     )
         else:
             raise ValueError("preprocess_type should be 'mel'")
@@ -464,17 +456,26 @@ class PasstModel():
 
 
         if self.opt.weights_path:
-            # load the custom weights model state dict
+        # load the custom weights model state dict
             state_dict = torch.load(self.opt.weights_path)
-
+            # state_dict['model_state_dict']
+            remove_prefix = '_orig_mod.'
+            state_dict = {k[len(remove_prefix):] if k.startswith(
+                remove_prefix) else k: v for k, v in state_dict.items()}
             # I had to add this because apparently toch.save is adding somo prefix to configurations
             remove_prefix = 'net.'
             state_dict = {k[len(remove_prefix):] if k.startswith(
                 remove_prefix) else k: v for k, v in state_dict.items()}
-            state_dict. pop('device_proxy', None)
+            state_dict.pop('device_proxy', None)
 
             # load the weights into the transformer
-            model.net.load_state_dict(state_dict)
+            model.net.load_state_dict(state_dict,strict=True)
+
+        if self.opt.gpu:
+            model = model.cuda()
+
+        if self.opt.compile:
+            model = torch.compile(model=model,mode='max-autotune')
         return model
 
     def train_model(self,model,train_dataloader,test_dataloader,results_folder):
@@ -555,6 +556,7 @@ class PasstModel():
                 if scheduler:
                     scheduler.step()
 
+
             train_loss /= len(train_dataloader)
             train_losses.append(train_loss)
             logging.info(f"Epoch {epoch + 1} completed, Train Loss: {train_loss}")
@@ -569,7 +571,8 @@ class PasstModel():
                 best_val_loss = val_loss
                 early_stopping_counter = 0
                 best_model_state_dict = deepcopy(model.state_dict())
-                torch.save(best_model_state_dict, os.path.join(results_folder, f'checkpoint_{epoch + 1}.pth'))
+                if self.opt.save_checkpoints:
+                    torch.save(best_model_state_dict, os.path.join(results_folder, f'checkpoint_{epoch + 1}.pth'))
             else:
                 early_stopping_counter += 1
                 if early_stopping_counter >= self.opt.patience:
