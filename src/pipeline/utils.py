@@ -470,6 +470,40 @@ class ValidationPlot:
         plot.savefig(os.path.join(saving_folder, "TrainigCurves.png"))
 
 
+def visualize_inference(path_json: str, path_audio: str, path_yaml: str, model: str) -> None:
+    yaml_content = load_yaml(path_yaml)
+
+    with open(path_json, 'r') as f:
+        results = json.load(f)
+
+    y, sr = librosa.load(path_audio, sr=None)
+    if sr >= yaml_content["sr"]:
+        y = librosa.resample(y=y, orig_sr=sr, target_sr=yaml_content["sr"])
+    else:
+        raise Exception(f"Sampling rate is lower than {yaml_content['sr']} Hz")
+
+    S = librosa.feature.melspectrogram(y=y, sr=yaml_content["sr"], n_mels=128, hop_length=yaml_content["hopsize"], n_fft=yaml_content["n_fft"])
+    S_dB = librosa.power_to_db(S, ref=np.max)
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    img = librosa.display.specshow(S_dB, sr=yaml_content["sr"], hop_length=yaml_content["hopsize"], x_axis='time', y_axis='mel', ax=ax)
+    plt.title(os.path.basename(path_audio))
+    
+    max_time = y.shape[0] / yaml_content["sr"]
+    line_positions = np.arange(0, max_time-1, yaml_content["duration"])
+    
+    if model == 'effat':
+        predicted_classes = [value["Predicted Class"] for key, value in results.items()]
+    elif model == 'passt':
+        predicted_classes = [entry["Predicted Class"] for entry in results]
+
+    for i, pos in enumerate(line_positions):
+        ax.axvline(x=pos, color='red', linewidth=1)
+        ax.text(pos + yaml_content["duration"] / 2, S.shape[0] * 10, predicted_classes[i], color='white', verticalalignment='top', rotation=90)
+
+    plt.show()
+
+
 class SuperpositionType(Enum):
     """A helper class to check the type of superposition when dealing with the overlapping.
     """
