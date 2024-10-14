@@ -25,6 +25,7 @@ from mutagen.flac import FLAC
 from tqdm import tqdm
 import logging
 import torchaudio
+import random
 
 from .utils import SuperpositionType
 
@@ -497,6 +498,8 @@ class EcossDataset:
            segment = self.zero_padding(signal, delta_start, delta_end)
         elif self.pad_mode == 'white_noise':
             segment = self.white_noise_padding(signal, delta_start, delta_end)
+        elif self.pad_mode == 'random':
+            segment = self.random_padding(signal)
         else:
             logger.error("Error : pad_mode not valid")
             exit(1)
@@ -542,7 +545,44 @@ class EcossDataset:
         segment = np.concatenate((white_noise_start, signal, white_noise_end))
 
         return segment
+    
+    def random_padding(self, signal: np.ndarray) -> np.ndarray:
+        """
+        Pad the signal with random white noise and repeat the signal randomly.
 
+        Parameters:
+        signal (np.array): Signal array.
+
+        Returns:
+        np.array: Randomly padded signal.
+        """
+        total_length = 0
+        segments = []
+        signal_length = len(signal)
+        signal_points = 0
+
+
+        while total_length < self.segment_length:
+            # Decide randomly whether to add white noise or signal
+            if random.choice([True, False]):
+                noise_length = random.randint(1, int(2 * (self.segment_length - total_length) / 3))
+                # Add white noise at the beginning
+                white_noise = np.random.normal(loc=0, scale=np.std(signal) / 10, size=noise_length)
+                segments.append(white_noise)
+                total_length += noise_length
+            else:
+                segments.append(signal)
+                total_length += signal_length
+                if (total_length + signal_length) < self.segment_length:
+                    signal_points += signal_length
+                else:
+                    signal_points += self.segment_length - total_length
+        
+        final_segment = np.concatenate(segments)[:self.segment_length]
+        if signal_points <= signal_length:
+            final_segment[-len(signal):] = signal
+        
+        return final_segment
 
     def save_data(self, segments: list[np.ndarray], path: str) -> None:
         """
