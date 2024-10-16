@@ -241,7 +241,7 @@ class EffAtModel():
 
             epoch_loss = running_loss / batch_count
             train_accuracy = 100 * correct / total
-            train_f1 = f1_score(all_labels, all_preds, average='weighted')
+            train_f1 = f1_score(all_labels, all_preds, average='macro')
 
             # Evaluation
             self.model.eval()
@@ -272,7 +272,7 @@ class EffAtModel():
 
             avg_test_loss = test_loss / batch_count
             test_accuracy = 100 * correct / total
-            test_f1 = f1_score(all_labels, all_preds, average='weighted')
+            test_f1 = f1_score(all_labels, all_preds, average='macro')
 
             train_losses.append(epoch_loss)
             test_losses.append(avg_test_loss)
@@ -365,7 +365,7 @@ class EffAtModel():
                 all_labels.extend(labels.cpu().numpy())
 
         test_accuracy = 100 * correct / total
-        test_f1 = f1_score(all_labels, all_preds, average='weighted')
+        test_f1 = f1_score(all_labels, all_preds, average='macro')
 
         metrics = {"test_acc": test_accuracy,
                    "test_f1": test_f1}
