@@ -565,7 +565,7 @@ class EcossDataset:
         while total_length < self.segment_length:
             # Decide randomly whether to add white noise or signal
             if random.choice([True, False]):
-                noise_length = random.randint(1, int(2 * (self.segment_length - total_length) / 3))
+                noise_length = random.randint(1, max(1,int(2 * (self.segment_length - total_length) / 3)))
                 # Add white noise at the beginning
                 white_noise = np.random.normal(loc=0, scale=np.std(signal) / 10, size=noise_length)
                 segments.append(white_noise)
