@@ -62,7 +62,7 @@ if __name__ == "__main__":
     elif MODEL_TYPE.lower() == "effat":
         model = EffAtModel(yaml_content=yaml_content,data_path=data_path, num_classes=num_classes)
     elif MODEL_TYPE.lower() == "vggish":
-        model = VggishModel(yaml_content=yaml_content,data_path=data_path, signals=signals, labels=labels, split_info=split_info, sample_rate = sr)
+        model = VggishModel(yaml_content=yaml_content,data_path=data_path, signals=signals, labels=labels, split_info=split_info)
 
     model.plot_processed_data()
     model.train(results_folder = results_folder)

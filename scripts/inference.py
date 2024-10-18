@@ -33,7 +33,7 @@ if __name__ == "__main__":
             class_map = json.load(f)
         model = EffAtModel(yaml_content=yaml_content,data_path=INFERENCE_DATA_PATH, num_classes=len(class_map))
     elif MODEL_TYPE.lower() == "vggish":
-        model = VggishModel(yaml_content=yaml_content,data_path=INFERENCE_DATA_PATH,sample_rate=32000)
+        model = VggishModel(yaml_content=yaml_content,data_path=INFERENCE_DATA_PATH)
 
 
     model.inference(results_folder=results_folder, path_model=PATH_MODEL_TEST, path_data=INFERENCE_DATA_PATH)

@@ -31,9 +31,9 @@ logger.addHandler(handler)
 
 
 class VggishModel():
-    def __init__(self, yaml_content: dict, signals: list = None, labels:list = None, split_info:list = None, sample_rate:float = None, data_path: str = None) -> None:
+    def __init__(self, yaml_content: dict, signals: list = None, labels:list = None, split_info:list = None, data_path: str = None) -> None:
         self.yaml = yaml_content
-        self.sample_rate=sample_rate
+        self.sample_rate=self.yaml.get('desired_sr')
         self.signals = signals
         self.labels = labels
         self.split_info = split_info
@@ -101,9 +101,8 @@ class VggishModel():
         
 
     def inference(self,path_data,results_folder,path_model=None):
-        sr = self.yaml.get('desired_sr')
         duration = self.yaml.get('desired_duration')
-        segments = process_data_for_inference(path_audio= path_data, desired_sr=sr, desired_duration=duration)
+        segments = process_data_for_inference(path_audio= path_data, desired_sr=self.sample_rate, desired_duration=duration)
         X = []
         for segment in tqdm(segments, total = len(segments), desc = "Features extraction"):
             X.append(self.get_features(segment))
@@ -250,7 +249,7 @@ class VggishModel():
             for label in unique_data_labels:
                 audio_files = os.listdir(os.path.join(data_path, split, label))
                 for audio in audio_files:
-                    signal, sr = sf.read(audio)
+                    signal, sr = sf.read(os.path.join(data_path, split, label,audio))
                     x_data.append(signal)
                     y_data.append(label)
                     
