@@ -34,7 +34,6 @@ def main():
         if UNWANTED_LABELS[0] == '':
             UNWANTED_LABELS = None
 
-    sr =32000
     ecoss_list = []
     yaml_content = load_yaml(YAML_PATH)
     for annot_path in ANNOTATIONS_PATHS:
@@ -65,7 +64,7 @@ def main():
     elif MODEL_TYPE.lower() == "effat":
         model = EffAtModel(yaml_content=yaml_content,data_path=data_path, num_classes=num_classes)
     elif MODEL_TYPE.lower() == "vggish":
-        model = VggishModel(yaml_content=yaml_content,data_path=data_path, signals=signals, labels=labels, split_info=split_info, sample_rate = sr)
+        model = VggishModel(yaml_content=yaml_content,data_path=data_path, signals=signals, labels=labels, split_info=split_info)
 
     model.plot_processed_data()
     model.test(results_folder=results_folder, path_model=PATH_MODEL_TEST, path_data=data_path)
