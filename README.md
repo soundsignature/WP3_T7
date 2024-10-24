@@ -51,6 +51,9 @@ TEST_SIZE = # Size of the test set in decimal format (e.g. 0.3)
 ANNOTATIONS_PATHS= 'path/to/data1,path/to/data1,...'
 YAML_PATH = path/to/yaml/config/file
 MODEL_TYPE = # effat passt or vggish
+PATH_STORE_DATA = data/ # Desired path to save processed data
+PAD_MODE = # zeros, random or white_noise
+OVERWRITE_DATA = # True or False. If PATH_STORE_DATA already exists and OVERWRITE_DATA = False, it doesn't process the data, just load the data from the path defined.
 
 # Inference / Test parameters
 INFERENCE_DATA_PATH = path/to/file/to/predict
