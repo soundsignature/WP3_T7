@@ -14,6 +14,7 @@ from src.pipeline.utils import create_exp_dir, load_yaml
 from dotenv import load_dotenv
 # import torch
 import logging
+import shutil
 
 
 
@@ -31,7 +32,6 @@ def main():
     PATH_STORE_DATA = os.getenv("PATH_STORE_DATA")
     PAD_MODE = os.getenv("PAD_MODE")
     OVERWRITE_DATA = os.getenv("OVERWRITE_DATA", 'False').lower() in ('true', '1', 't')
-
     if len(NEW_ONTOLOGY) == 1:
         if NEW_ONTOLOGY[0] == '':
             NEW_ONTOLOGY = None
@@ -48,12 +48,15 @@ def main():
         duration = yaml_content["duration"]
 
     if Path(PATH_STORE_DATA).exists() and not OVERWRITE_DATA:
-        data_already_generate = True
+        data_already_generated = True
         logging.warning(f"YOU ARE USING THE DATA STORED IN {PATH_STORE_DATA}")
         signals,labels,split_info = None, None, None
         data_path = PATH_STORE_DATA
     else:
-        data_already_generate = False
+        data_already_generated = False
+        if PATH_STORE_DATA and Path(PATH_STORE_DATA).exists():
+            shutil.rmtree(PATH_STORE_DATA)
+
         for annot_path in ANNOTATIONS_PATHS:
             logging.info(annot_path)
             ecoss_data1 = EcossDataset(annot_path, PATH_STORE_DATA, PAD_MODE, sr, duration, "wav", DESIRED_MARGIN)
@@ -73,7 +76,7 @@ def main():
 
 
     results_folder = create_exp_dir(name = EXP_NAME, model=MODEL_TYPE, task= "train")
-    if data_already_generate:
+    if data_already_generated:
         num_classes = len(list((Path(data_path) / "train" ).glob("*")))
     else:
         num_classes = len(ecoss_data.df["final_source"].unique())
