@@ -1,0 +1,5 @@
+{
+ model_path: "/home/isabel/Workspace/ECOSS/runs/vggish/train/test_04/model.joblib",
+ labels_mapping_path: "/home/isabel/Workspace/ECOSS/runs/vggish/train/test_04/labels_mapping.json",
+ desired_sr: 32000,
+}
