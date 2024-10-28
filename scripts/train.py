@@ -47,15 +47,16 @@ def main():
     else:
         duration = yaml_content["duration"]
 
-    if Path(PATH_STORE_DATA).exists() and not OVERWRITE_DATA:
+    if (Path(PATH_STORE_DATA) / "train").exists() and (Path(PATH_STORE_DATA) / "test").exists() and not OVERWRITE_DATA:
         data_already_generated = True
         logging.warning(f"YOU ARE USING THE DATA STORED IN {PATH_STORE_DATA}")
         signals,labels,split_info = None, None, None
         data_path = PATH_STORE_DATA
     else:
         data_already_generated = False
-        if PATH_STORE_DATA and Path(PATH_STORE_DATA).exists():
-            shutil.rmtree(PATH_STORE_DATA)
+        if PATH_STORE_DATA and (Path(PATH_STORE_DATA) / "train").exists() and (Path(PATH_STORE_DATA) / "test").exists():
+            shutil.rmtree(Path(PATH_STORE_DATA) / "train")
+            shutil.rmtree(Path(PATH_STORE_DATA) / "test")
 
         for annot_path in ANNOTATIONS_PATHS:
             logging.info(annot_path)
