@@ -1,5 +1,6 @@
 import sys
 import os
+from pathlib import Path
 
 PROJECT_FOLDER = os.path.dirname(__file__).replace('/src', '/pipeline')
 PARENT_PROJECT_FOLDER = os.path.dirname(PROJECT_FOLDER)
@@ -11,10 +12,14 @@ from src.pipeline.vggish_model import VggishModel
 from src.pipeline.dataset import EcossDataset
 from src.pipeline.utils import create_exp_dir, load_yaml
 from dotenv import load_dotenv
+# import torch
+import logging
+import shutil
 
 
 
 def main():
+    # torch.set_float32_matmul_precision('high') #In a torch warning says you should run in this mode. I am not sure about the implications
     load_dotenv()
     ANNOTATIONS_PATHS = os.getenv("ANNOTATIONS_PATHS").split(',')
     YAML_PATH = os.getenv("YAML_PATH")
@@ -24,7 +29,9 @@ def main():
     UNWANTED_LABELS = os.getenv("UNWANTED_LABELS").split(',')
     TEST_SIZE = float(os.getenv("TEST_SIZE"))
     DESIRED_MARGIN = float(os.getenv("DESIRED_MARGIN"))
-
+    PATH_STORE_DATA = os.getenv("PATH_STORE_DATA")
+    PAD_MODE = os.getenv("PAD_MODE")
+    OVERWRITE_DATA = os.getenv("OVERWRITE_DATA", 'False').lower() in ('true', '1', 't')
     if len(NEW_ONTOLOGY) == 1:
         if NEW_ONTOLOGY[0] == '':
             NEW_ONTOLOGY = None
@@ -35,29 +42,46 @@ def main():
     sr =32000
     ecoss_list = []
     yaml_content = load_yaml(YAML_PATH)
-    for annot_path in ANNOTATIONS_PATHS:
-        print(annot_path)
-        ecoss_data1 = EcossDataset(annot_path, 'data/', 'zeros', sr, 3,"wav", DESIRED_MARGIN)
-        ecoss_data1.add_file_column()
-        ecoss_data1.fix_onthology(labels=NEW_ONTOLOGY)
-        ecoss_data1.filter_overlapping()
-        ecoss_data1.drop_unwanted_labels(UNWANTED_LABELS)
-        ecoss_list.append(ecoss_data1)
+    if MODEL_TYPE.lower() == "vggish":
+        duration = 1
+    else:
+        duration = yaml_content["duration"]
 
-    ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
-    length_prior_filter = len(ecoss_data.df)
-    ecoss_data.filter_lower_sr()
-    ecoss_data.filter_by_freqlims()
-    ecoss_data.generate_insights()
-    ecoss_data.split_train_test_balanced(test_size=TEST_SIZE, random_state=27)
-    signals,labels,split_info = ecoss_data.process_all_data()
-    data_path = ecoss_data.path_store_data
+    if (Path(PATH_STORE_DATA) / "train").exists() and (Path(PATH_STORE_DATA) / "test").exists() and not OVERWRITE_DATA:
+        data_already_generated = True
+        logging.warning(f"YOU ARE USING THE DATA STORED IN {PATH_STORE_DATA}")
+        signals,labels,split_info = None, None, None
+        data_path = PATH_STORE_DATA
+    else:
+        data_already_generated = False
+        if PATH_STORE_DATA and (Path(PATH_STORE_DATA) / "train").exists() and (Path(PATH_STORE_DATA) / "test").exists():
+            shutil.rmtree(Path(PATH_STORE_DATA) / "train")
+            shutil.rmtree(Path(PATH_STORE_DATA) / "test")
+
+        for annot_path in ANNOTATIONS_PATHS:
+            logging.info(annot_path)
+            ecoss_data1 = EcossDataset(annot_path, PATH_STORE_DATA, PAD_MODE, sr, duration, "wav", DESIRED_MARGIN)
+            ecoss_data1.add_file_column()
+            ecoss_data1.fix_onthology(labels=NEW_ONTOLOGY)
+            ecoss_data1.filter_overlapping()
+            ecoss_data1.drop_unwanted_labels(UNWANTED_LABELS)
+            ecoss_list.append(ecoss_data1)
+        ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
+        length_prior_filter = len(ecoss_data.df)
+        ecoss_data.filter_lower_sr()
+        ecoss_data.filter_by_freqlims()
+        ecoss_data.generate_insights()
+        ecoss_data.split_train_test_balanced(test_size=TEST_SIZE, random_state=27)
+        signals,labels,split_info = ecoss_data.process_all_data()
+        data_path = ecoss_data.path_store_data
 
 
     results_folder = create_exp_dir(name = EXP_NAME, model=MODEL_TYPE, task= "train")
-
-    num_classes = len(ecoss_data.df["final_source"].unique())
-    print(f"THE NUMBER OF CLASSES IS {num_classes}\n")
+    if data_already_generated:
+        num_classes = len(list((Path(data_path) / "train" ).glob("*")))
+    else:
+        num_classes = len(ecoss_data.df["final_source"].unique())
+    logging.info(f"THE NUMBER OF CLASSES IS {num_classes}\n")
 
     if MODEL_TYPE.lower() == "passt":
         model = PasstModel(yaml_content=yaml_content,data_path=data_path)
