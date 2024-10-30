@@ -411,10 +411,10 @@ class EcossDataset:
             split = row["split"]
             # Extract only the label segment
             signal = original_signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
-            logger.info(f"{signal}")
+            logger.debug(f"{signal}")
             if self.window:
                 signal = signal * get_window('hamming', int(original_sr*row["tmax"]) - int(original_sr*row["tmin"]))
-                logger.info(f"Signal after the hamming window {signal}")
+                logger.debug(f"Signal after the hamming window {signal}")
             # Process the signal
             segments = self.process_data(signal, original_sr)
             # Count how many times
@@ -482,10 +482,10 @@ class EcossDataset:
         # Extract each segment and append to the list
         for i in range(n_segments):
             segment = signal[(i*self.segment_length):((i+1)*self.segment_length)]
-            logger.info(f"{segment}")
+            logger.debug(f"{segment}")
             if self.window:
                 segment = segment * get_window('hamming', ((i+1)*self.segment_length) - (i*self.segment_length))
-                logger.info(f"Segment after the hamming window {segment}")
+                logger.debug(f"Segment after the hamming window {segment}")
             segments.append(segment)
         return segments
 
