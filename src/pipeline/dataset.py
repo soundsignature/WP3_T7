@@ -25,7 +25,7 @@ from mutagen.flac import FLAC
 from tqdm import tqdm
 import logging
 import torchaudio
-import torch
+from scipy.signal import get_window
 import random
 
 from .utils import SuperpositionType
@@ -411,7 +411,7 @@ class EcossDataset:
             # Extract only the label segment
             signal = original_signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
             if self.window:
-                signal = signal * torch.hamming_window(int(original_sr*row["tmax"]) - int(original_sr*row["tmin"]))
+                signal = signal * get_window('hamming', int(original_sr*row["tmax"]) - int(original_sr*row["tmin"]))
             # Process the signal
             segments = self.process_data(signal, original_sr)
             # Count how many times
@@ -480,7 +480,7 @@ class EcossDataset:
         for i in range(n_segments):
             segment = signal[(i*self.segment_length):((i+1)*self.segment_length)]
             if self.window:
-                segment = segment * torch.hamming_window(((i+1)*self.segment_length) - (i*self.segment_length))
+                segment = segment * get_window('hamming', ((i+1)*self.segment_length) - (i*self.segment_length))
             segments.append(segment)
         return segments
 
