@@ -1,3 +1,6 @@
+augmentmel: False  # Decides if we use LibrosaSpec or AugmentMelSTFT
+melspec: False  # If we have selected LibrosaSpec, it decides if we compute a mel spectrogram or a normal (linear y) spectrogram
+
 # Augment mel
 freqm: 0
 timem: 0

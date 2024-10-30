@@ -26,8 +26,9 @@ from glob import glob
 import seaborn as sns
 import pandas as pd
 from typing import Tuple, Dict, Union
+import librosa
 
-from .utils import AugmentMelSTFT, EffATWrapper, process_audio_for_inference
+from .utils import AugmentMelSTFT, EffATWrapper, process_audio_for_inference, LibrosaSpec
 from models.effat_repo.models.mn.model import get_model as get_mn
 from models.effat_repo.models.dymn.model import get_model as get_dymn
 
@@ -79,6 +80,7 @@ class HelperDataset(Dataset):
         self.data = data
         self.labels = labels
 
+
     def __len__(self):
         return len(self.data)
 
@@ -100,17 +102,27 @@ class EffAtModel():
         """
         self.yaml = yaml_content
         self.data_path = data_path
-        self.mel = AugmentMelSTFT(freqm=self.yaml["freqm"],
-                                  timem=self.yaml["freqm"],
-                                  n_mels=self.yaml["n_mels"],
-                                  sr=self.yaml["sr"],
-                                  win_length=self.yaml["win_length"],
-                                  hopsize=self.yaml["hopsize"],
-                                  n_fft=self.yaml["n_fft"],
-                                  fmin=self.yaml["fmin"],
-                                  fmax=self.yaml["fmax"],
-                                  fmax_aug_range=self.yaml["fmax_aug_range"],
-                                  fmin_aug_range=self.yaml["fmin_aug_range"])
+
+        if self.yaml["augmentmel"]:
+            self.mel = AugmentMelSTFT(freqm=self.yaml["freqm"],
+                                    timem=self.yaml["freqm"],
+                                    n_mels=self.yaml["n_mels"],
+                                    sr=self.yaml["sr"],
+                                    win_length=self.yaml["win_length"],
+                                    hopsize=self.yaml["hopsize"],
+                                    n_fft=self.yaml["n_fft"],
+                                    fmin=self.yaml["fmin"],
+                                    fmax=self.yaml["fmax"],
+                                    fmax_aug_range=self.yaml["fmax_aug_range"],
+                                    fmin_aug_range=self.yaml["fmin_aug_range"])
+        else:
+            self.mel = LibrosaSpec(mel=self.yaml["melspec"],
+                                   sr=self.yaml["sr"],
+                                   win_length=self.yaml["win_length"],
+                                   hopsize=self.yaml["hopsize"],
+                                   n_fft=self.yaml["n_fft"],
+                                   n_mels=self.yaml["n_mels"])
+
         self.name_model = self.yaml["model_name"]
         self.num_classes = num_classes
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -505,20 +517,55 @@ class EffAtModel():
         if augment == False:
             self.mel.eval()
 
-        for av_class in available_classes:
-            path_wavs = os.path.join(path_classes, av_class)
-            wav_to_plot = os.path.join(path_wavs,
-                                       np.random.choice(os.listdir(path_wavs)))
-            logger.info(f"The file that will be plotted is {wav_to_plot}")
+        if self.yaml["augmentmel"]:
+            for av_class in available_classes:
+                path_wavs = os.path.join(path_classes, av_class)
+                wav_to_plot = os.path.join(path_wavs,
+                                        np.random.choice(os.listdir(path_wavs)))
+                logger.info(f"The file that will be plotted is {wav_to_plot}")
 
-            y, sr = torchaudio.load(wav_to_plot)
-            melspec = self.mel(y)
-            logger.info(f"The shape of the melspec is {melspec.shape}")
+                y, _ = torchaudio.load(wav_to_plot)
+                melspec = self.mel(y)
+                logger.info(f"The shape of the melspec is {melspec.shape}")
 
-            plt.figure()
-            plt.imshow(melspec[0], origin="lower")
-            plt.title(av_class)
-            plt.show()
+                plt.figure()
+                plt.imshow(melspec[0], origin="lower")
+                plt.title(av_class)
+                plt.show()
+        
+        if not self.yaml["augmentmel"] and self.yaml["melspec"]:
+            for av_class in available_classes:
+                path_wavs = os.path.join(path_classes, av_class)
+                wav_to_plot = os.path.join(path_wavs,
+                                        np.random.choice(os.listdir(path_wavs)))
+                logger.info(f"The file that will be plotted is {wav_to_plot}")
+
+                y, _ = torchaudio.load(wav_to_plot)
+                melspec = self.mel(y)
+                logger.info(f"The shape of the melspec is {melspec.shape}")
+
+                plt.figure()
+                plt.imshow(melspec[0], origin="lower")
+                plt.title(av_class)
+                plt.show()
+        
+        elif not self.yaml["augmentmel"] and not self.yaml["melspec"]:
+            for av_class in available_classes:
+                path_wavs = os.path.join(path_classes, av_class)
+                wav_to_plot = os.path.join(path_wavs,
+                                        np.random.choice(os.listdir(path_wavs)))
+                logger.info(f"The file that will be plotted is {wav_to_plot}")
+
+                y, _ = torchaudio.load(wav_to_plot)
+                melspec = self.mel(y)
+                logger.info(f"The shape of the melspec is {melspec.shape}")
+
+                plt.figure(figsize=(10, 4))
+                librosa.display.specshow(melspec.numpy()[0], x_axis='time', y_axis='linear', sr=self.yaml["sr"], cmap='Greys', hop_length=self.yaml["hopsize"])
+                plt.title(av_class)
+                plt.show()
+
+
 
 
 

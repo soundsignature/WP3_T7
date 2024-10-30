@@ -514,3 +514,35 @@ class SuperpositionType(Enum):
     IS_CONTAINED = 4
 
 
+class LibrosaSpec(nn.Module):
+    def __init__(self, mel: bool, sr: float = 32_000, win_length: int = 800, hopsize: int = 320, n_fft: int = 1024, n_mels: int = 128):
+        torch.nn.Module.__init__(self)  # To make the class callable
+        self.mel = mel
+        self.sr = sr
+        self.win_length=win_length
+        self.hopsize=hopsize
+        self.n_fft = n_fft
+        self.n_mels = n_mels
+
+    def forward(self, y):
+        y = y.detach().numpy()
+        if self.mel:
+            S = librosa.feature.melspectrogram(y=y,
+                                               sr=self.sr,
+                                               n_mels=self.n_mels,
+                                               hop_length=self.hopsize,
+                                               win_length=self.win_length,
+                                               n_fft=self.n_fft)
+            S_dB = librosa.power_to_db(S)
+
+        else:
+            S = np.abs(librosa.stft(y,
+                                    n_fft=self.n_fft,
+                                    hop_length=self.hopsize,
+                                    win_length=self.win_length))
+            S_dB = librosa.amplitude_to_db(S, ref=np.max)
+
+        S_normalized = (S_dB - S_dB.min()) / (S_dB.max() - S_dB.min())  # Data between 0 and 1
+        return torch.Tensor(S_normalized)
+
+        
