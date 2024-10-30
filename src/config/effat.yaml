@@ -1,3 +1,6 @@
+augmentmel: False  # Decides if we use LibrosaSpec or AugmentMelSTFT
+melspec: False  # If we have selected LibrosaSpec, it decides if we compute a mel spectrogram or a normal (linear y) spectrogram
+
 # Augment mel
 freqm: 0
 timem: 0
@@ -19,12 +22,12 @@ compile: False # Whether to compile the model
 optimizer: adam
 lr: 0.001
 patience: 4
-batch_size: 64
+batch_size: 16
 n_epochs: 10
 
 #EcossDataset
 sr: 32000
-duration: 1
+duration: 5
 
 # If we want to test on train set
 test_on_train: False

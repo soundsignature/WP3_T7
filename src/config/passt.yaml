@@ -1,14 +1,14 @@
 
 # General Configuration
-batch_size: 8  # Number of samples per batch during training
+batch_size: 1  # Number of samples per batch during training
 gpu: True  # Whether to use GPU for training (True/False)
 freeze_layers: False  # Whether to freeze layers of the model during training
 num_epochs: 10  # Number of epochs to train the model
-compile: True # Whether to compile the model. If True fmin_aug_range and fmax_aug_range are not used (True/False)
+compile: False # Whether to compile the model. If True fmin_aug_range and fmax_aug_range are not used (True/False)
 save_checkpoints : False # Whether to save checkpoints during training (True/False)
 
 # Preprocessing Parameters
-preprocess_type: mel  # Type of preprocessing to apply (e.g., 'mel' for Mel spectrogram)
+preprocess_type: mel  # Type of preprocessing to apply (e.g., 'augmentmel' for AugmentMel spectrogram, 'mel' for a mel computed with librosa and 'normal' for normal spec with librosa)
 n_mels: 128  # Number of Mel bands to generate
 sr: 32000.0  # Sample rate of the audio
 win_length: 800  # Window length for STFT
@@ -35,7 +35,7 @@ input_tdim: 998  # Input time dimension
 u_patchout: 0  # Unstructured patchout (dropout) rate
 s_patchout_t: 0  # Structured patchout rate in time dimension
 s_patchout_f: 0  # Structured patchout rate in frequency dimension
-pretrained: True  # Whether to use a pretrained on Audioset model
+pretrained: False  # Whether to use a pretrained on Audioset model
 weights_path: ""  # Path to the pretrained weights (if any)
 
 # Hyperparameters
