@@ -114,6 +114,7 @@ class EcossDataset:
         save0 = dataset_list[0].saving_on_disk
         path_store0 = dataset_list[0].path_store_data
         desired_margin0 = dataset_list[0].desired_margin
+        window0 = dataset_list[0].window
         #Start populatinf DataFrame list
         df_list = [dataset_list[0].df]
         #Iterate over list to check appropiate values, exiting function it variables do not match
@@ -126,7 +127,7 @@ class EcossDataset:
         #Create EcossDataset object with concatenated info
         ConcatenatedEcoss = EcossDataset(path_dataset=path_dataset0, path_store_data=path_store0,
                                          pad_mode=padding0, sr=sr0, duration=duration0, saving_on_disk=save0,
-                                         desired_margin=desired_margin0)
+                                         desired_margin=desired_margin0, window=window0)
         ConcatenatedEcoss.df = pd.concat(df_list,ignore_index=True)
         return ConcatenatedEcoss
 
@@ -410,8 +411,10 @@ class EcossDataset:
             split = row["split"]
             # Extract only the label segment
             signal = original_signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
+            logger.info(f"{signal}")
             if self.window:
                 signal = signal * get_window('hamming', int(original_sr*row["tmax"]) - int(original_sr*row["tmin"]))
+                logger.info(f"Signal after the hamming window {signal}")
             # Process the signal
             segments = self.process_data(signal, original_sr)
             # Count how many times
@@ -479,8 +482,10 @@ class EcossDataset:
         # Extract each segment and append to the list
         for i in range(n_segments):
             segment = signal[(i*self.segment_length):((i+1)*self.segment_length)]
+            logger.info(f"{segment}")
             if self.window:
                 segment = segment * get_window('hamming', ((i+1)*self.segment_length) - (i*self.segment_length))
+                logger.info(f"Segment after the hamming window {segment}")
             segments.append(segment)
         return segments
 
