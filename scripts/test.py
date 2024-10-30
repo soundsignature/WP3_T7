@@ -34,11 +34,12 @@ def main():
         if UNWANTED_LABELS[0] == '':
             UNWANTED_LABELS = None
 
+    sr = 32_000
     ecoss_list = []
     yaml_content = load_yaml(YAML_PATH)
     for annot_path in ANNOTATIONS_PATHS:
         print(annot_path)
-        ecoss_data1 = EcossDataset(annot_path, 'data/', 'zeros', sr, 1,"wav")
+        ecoss_data1 = EcossDataset(annot_path, 'data/', 'zeros', sr, 1,"wav", yaml_content["duration"])
         ecoss_data1.add_file_column()
         ecoss_data1.fix_onthology(labels=NEW_ONTOLOGY)
         ecoss_data1.filter_overlapping()

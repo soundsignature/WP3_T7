@@ -28,6 +28,7 @@ n_epochs: 10
 #EcossDataset
 sr: 32000
 duration: 5
+window: True
 
 # If we want to test on train set
 test_on_train: False

@@ -25,6 +25,7 @@ from mutagen.flac import FLAC
 from tqdm import tqdm
 import logging
 import torchaudio
+import torch
 import random
 
 from .utils import SuperpositionType
@@ -62,7 +63,7 @@ class EcossDataset:
     several datasets from the FTP.
     """
     def __init__(self, path_dataset: str, path_store_data: str, pad_mode: str,
-                 sr: float, duration: float, saving_on_disk: bool, desired_margin: float) -> None:
+                 sr: float, duration: float, saving_on_disk: bool, desired_margin: float, window: bool) -> None:
         """The constructor for the EcossDataset class.
 
         Args:
@@ -73,6 +74,7 @@ class EcossDataset:
             duration (float): The desired duration for the clips generated for the AI models.
             saving_on_disk (bool): If set to True, the generated data will be saved on disk.
             desired_margin (float): Is used in case that we cant visualize in the spectrogram the whole signature, and if we cant visualize this percentage we discard the signal (e.g 0.5)
+            window (bool): If True, a Hamming window is used to cut the signals.
         """
         self.path_dataset = path_dataset
         self.path_store_data = path_store_data
@@ -87,6 +89,7 @@ class EcossDataset:
             self.path_dataset = os.path.join(self.path_dataset, 'samples for training')
         self.path_annots = os.path.join(self.path_dataset, 'annotations.csv')
         self.df = pd.read_csv(self.path_annots, sep=";")
+        self.window = window
 
     @staticmethod
     def concatenate_ecossdataset(dataset_list: list):
@@ -407,6 +410,8 @@ class EcossDataset:
             split = row["split"]
             # Extract only the label segment
             signal = original_signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
+            if self.window:
+                signal = signal * torch.hamming_window(int(original_sr*row["tmax"]) - int(original_sr*row["tmin"]))
             # Process the signal
             segments = self.process_data(signal, original_sr)
             # Count how many times
@@ -474,6 +479,8 @@ class EcossDataset:
         # Extract each segment and append to the list
         for i in range(n_segments):
             segment = signal[(i*self.segment_length):((i+1)*self.segment_length)]
+            if self.window:
+                segment = segment * torch.hamming_window(((i+1)*self.segment_length) - (i*self.segment_length))
             segments.append(segment)
         return segments
 
