@@ -544,10 +544,11 @@ class EffAtModel():
                 melspec = self.mel(y)
                 logger.info(f"The shape of the melspec is {melspec.shape}")
 
-                plt.figure()
-                plt.imshow(melspec[0], origin="lower")
+                plt.figure(figsize=(10, 4))
+                librosa.display.specshow(melspec.cpu().numpy()[0], x_axis='time', y_axis='mel', sr=self.yaml["sr"], cmap='Greys', hop_length=self.yaml["hopsize"])
                 plt.title(av_class)
                 plt.show()
+                
         
         elif not self.yaml["augmentmel"] and not self.yaml["melspec"]:
             for av_class in available_classes:
@@ -561,7 +562,7 @@ class EffAtModel():
                 logger.info(f"The shape of the melspec is {melspec.shape}")
 
                 plt.figure(figsize=(10, 4))
-                librosa.display.specshow(melspec.numpy()[0], x_axis='time', y_axis='linear', sr=self.yaml["sr"], cmap='Greys', hop_length=self.yaml["hopsize"])
+                librosa.display.specshow(melspec.cpu().numpy()[0], x_axis='time', y_axis='linear', sr=self.yaml["sr"], cmap='Greys', hop_length=self.yaml["hopsize"])
                 plt.title(av_class)
                 plt.show()
 
