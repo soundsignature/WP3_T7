@@ -448,7 +448,7 @@ class PasstModel():
                               n_fft=self.opt.n_fft,
                               win_length=self.opt.win_length,
                               hopsize=self.opt.hopsize,
-                              n_mels=self.opt.n_mels)
+)
 
         else:
             raise ValueError("preprocess_type should be 'augmentmel', 'mel' or 'normal'")
