@@ -68,14 +68,14 @@ class HelperDataset(Dataset):
         self.root_dir = Path(root_dir)
         self.sr = sr
         self.duration = duration
-        self.labels = [item.name for item in self.root_dir.glob('*') if item.is_dir()]
+        self.unique_labels = [item.name for item in self.root_dir.glob('*') if item.is_dir()]
         if not label_to_idx:
-            self.label_to_idx = {label: idx for idx, label in enumerate(self.labels)}
+            self.label_to_idx = {label: idx for idx, label in enumerate(self.unique_labels)}
         else:
             self.label_to_idx = label_to_idx
         self.data = []
         labels = []
-        for label in self.labels:
+        for label in self.unique_labels:
             for audio_file in self.root_dir.joinpath(label).rglob('*.wav'):
                 self.data.append((audio_file, self.label_to_idx[label]))
                 labels.append(self.label_to_idx[label])
@@ -174,7 +174,7 @@ class PasstModel():
         model.eval()
         logging.info("Weights succesfully loaded into the model")
         test_dataloader = DataLoader(HelperDataset(self.data_path / "train",duration = self.opt.duration,sr=self.opt.sr))
-        self.unique_labels = test_dataloader.dataset.labels
+        self.unique_labels = test_dataloader.dataset.unique_labels
         self.test_model(model,test_dataloader,results_folder,title = "test_result")
 
     def inference(self,results_folder, path_model, path_data):
@@ -320,7 +320,7 @@ class PasstModel():
             dataset = HelperDataset(self.data_path / "train",duration = self.opt.duration,sr=self.opt.sr)
             test_dataset = HelperDataset(self.data_path / "test",label_to_idx = dataset.label_to_idx,duration=self.opt.duration,sr=self.opt.sr)
 
-        unique_labels = dataset.labels
+        unique_labels = dataset.unique_labels
         n_classes = len(unique_labels)
 
         # Create weighted samples to balance classes
