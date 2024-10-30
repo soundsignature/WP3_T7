@@ -42,7 +42,7 @@ sys.path.append(PARENT_PROJECT_FOLDER)
 from models.passt.base import get_model
 from models.passt.preprocess import AugmentMelSTFT
 from models.passt.wrapper import PasstBasicWrapper
-from pipeline.utils import save_training_curves, save_confusion_matrix, process_audio_for_inference
+from pipeline.utils import save_training_curves, save_confusion_matrix, process_audio_for_inference, LibrosaSpec
 
 class HelperDataset(Dataset):
     """
@@ -74,10 +74,13 @@ class HelperDataset(Dataset):
         else:
             self.label_to_idx = label_to_idx
         self.data = []
+        labels = []
         for label in self.labels:
             for audio_file in self.root_dir.joinpath(label).rglob('*.wav'):
                 self.data.append((audio_file, self.label_to_idx[label]))
-
+                labels.append(self.label_to_idx[label])
+        
+        self.labels = labels
         self.resamplers = [(None,None)]
 
     def __len__(self):
@@ -320,7 +323,6 @@ class PasstModel():
         unique_labels = dataset.labels
         n_classes = len(unique_labels)
 
-
         # Create weighted samples to balance classes
         train_sampler = self.balance_dataset(dataset)
 
@@ -342,7 +344,8 @@ class PasstModel():
         Returns:
             tuple: A tuple containing the list of weights for each sample and the WeightedRandomSampler.
         """
-        targets = [target for _, target, _ in dataset]
+        # targets = [target for _, target, _ in dataset]
+        targets = dataset.labels
 
         # Create weighted samples to balance classes
         class_count = [i for i in np.bincount(targets)]
@@ -373,7 +376,6 @@ class PasstModel():
         --------
         None
         """
-
         train_dataloader, test_dataloader = self.load_train_test_datasets()
         model = self.create_model()
         for dataset in [train_dataloader,test_dataloader]:
@@ -418,7 +420,7 @@ class PasstModel():
         torch.nn.Module: Created model.
 
         """
-        if self.opt.preprocess_type == "mel":
+        if self.opt.preprocess_type == "augmentmel":
             mel = AugmentMelSTFT(n_mels=self.opt.n_mels,
                     sr=self.opt.sr,
                     win_length=self.opt.win_length,
@@ -434,8 +436,22 @@ class PasstModel():
                     fmax_aug_range=self.opt.fmax_aug_range,
                     compiled_model=self.opt.compile
                     )
+        elif self.opt.preprocess_type == "mel":
+            mel = LibrosaSpec(mel=True,
+                              n_fft=self.opt.n_fft,
+                              win_length=self.opt.win_length,
+                              hopsize=self.opt.hopsize,
+                              n_mels=self.opt.n_mels)
+        
+        elif self.opt.preprocess_type == "normal":
+            mel = LibrosaSpec(mel=False,
+                              n_fft=self.opt.n_fft,
+                              win_length=self.opt.win_length,
+                              hopsize=self.opt.hopsize,
+                              n_mels=self.opt.n_mels)
+
         else:
-            raise ValueError("preprocess_type should be 'mel'")
+            raise ValueError("preprocess_type should be 'augmentmel', 'mel' or 'normal'")
 
 
         # Define the transformer

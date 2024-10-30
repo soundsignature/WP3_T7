@@ -523,9 +523,10 @@ class LibrosaSpec(nn.Module):
         self.hopsize=hopsize
         self.n_fft = n_fft
         self.n_mels = n_mels
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     def forward(self, y):
-        y = y.detach().numpy()
+        y = y.cpu().detach().numpy()
         if self.mel:
             S = librosa.feature.melspectrogram(y=y,
                                                sr=self.sr,
@@ -543,6 +544,6 @@ class LibrosaSpec(nn.Module):
             S_dB = librosa.amplitude_to_db(S, ref=np.max)
 
         S_normalized = (S_dB - S_dB.min()) / (S_dB.max() - S_dB.min())  # Data between 0 and 1
-        return torch.Tensor(S_normalized)
+        return torch.Tensor(S_normalized).to(self.device)
 
         
