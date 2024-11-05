@@ -60,7 +60,7 @@ def main():
 
         for annot_path in ANNOTATIONS_PATHS:
             logging.info(annot_path)
-            ecoss_data1 = EcossDataset(annot_path, PATH_STORE_DATA, PAD_MODE, sr, duration, "wav", DESIRED_MARGIN)
+            ecoss_data1 = EcossDataset(annot_path, PATH_STORE_DATA, PAD_MODE, sr, duration, "wav", DESIRED_MARGIN, yaml_content["window"])
             ecoss_data1.add_file_column()
             ecoss_data1.fix_onthology(labels=NEW_ONTOLOGY)
             ecoss_data1.filter_overlapping()
