@@ -32,6 +32,13 @@ def main():
     PATH_STORE_DATA = os.getenv("PATH_STORE_DATA")
     PAD_MODE = os.getenv("PAD_MODE")
     OVERWRITE_DATA = os.getenv("OVERWRITE_DATA", 'False').lower() in ('true', '1', 't')
+    MIN_DURATION = float(os.getenv("MIN_DURATION"))
+    CLASSES_FILTER_TIME = os.getenv("CLASSES_FILTER_TIME").split(',')
+    if CLASSES_FILTER_TIME[0] == "":
+        CLASSES_FILTER_TIME = None
+
+    
+
     if len(NEW_ONTOLOGY) == 1:
         if NEW_ONTOLOGY[0] == '':
             NEW_ONTOLOGY = None
@@ -68,9 +75,13 @@ def main():
             ecoss_list.append(ecoss_data1)
         ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
         length_prior_filter = len(ecoss_data.df)
+        ecoss_data.generate_insights()
         ecoss_data.filter_lower_sr()
-        ecoss_data.filter_by_duration(min_duration=os.getenv("MIN_DURATION"))
+        logging.info(f"\nThe number of signals after filtering by sr is {len(ecoss_data.df)}\n")
+        ecoss_data.filter_by_duration(min_duration=MIN_DURATION, set_classes=CLASSES_FILTER_TIME)
+        logging.info(f"\nThe number of signals after filtering by duration is {len(ecoss_data.df)}\n")
         ecoss_data.filter_by_freqlims()
+        logging.info(f"\nThe number of signals after filtering by frequency limits is {len(ecoss_data.df)}\n")
         ecoss_data.generate_insights()
         ecoss_data.split_train_test_balanced(test_size=TEST_SIZE, random_state=27)
         signals,labels,split_info = ecoss_data.process_all_data()
