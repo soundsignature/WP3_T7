@@ -413,7 +413,7 @@ class EcossDataset:
             signal = original_signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
             logger.debug(f"{signal}")
             if self.window:
-                signal = signal * get_window('hamming', int(original_sr*row["tmax"]) - int(original_sr*row["tmin"]))
+                signal = signal * get_window('hamming', len(signal))
                 logger.debug(f"Signal after the hamming window {signal}")
             # Process the signal
             segments = self.process_data(signal, original_sr)
