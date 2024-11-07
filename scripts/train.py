@@ -69,6 +69,7 @@ def main():
         ecoss_data = EcossDataset.concatenate_ecossdataset(ecoss_list)
         length_prior_filter = len(ecoss_data.df)
         ecoss_data.filter_lower_sr()
+        ecoss_data.filter_by_duration(min_duration=os.getenv("MIN_DURATION"))
         ecoss_data.filter_by_freqlims()
         ecoss_data.generate_insights()
         ecoss_data.split_train_test_balanced(test_size=TEST_SIZE, random_state=27)
