@@ -58,7 +58,7 @@ PAD_MODE = # zeros, random or white_noise
 OVERWRITE_DATA = # True or False. If PATH_STORE_DATA already exists and OVERWRITE_DATA = False, it doesn't process the data, just load the data from the path defined.
 
 # Inference / Test parameters
-INFERENCE_DATA_PATH = path/to/file/to/predict
+INFERENCE_DATA_PATH = path/to/file/to/predict  # Can also the path to a folder with more than one audio, inference will be performed in all the audios in the folder. Only audios should be inside that folder.
 PATH_MODEL_TEST = path/to/trained/model/weights
 
 # Check labels
