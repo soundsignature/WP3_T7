@@ -211,7 +211,24 @@ class EcossDataset:
             
         self.df.drop(indexes_delete, inplace=True)
         self.df.reset_index(drop=True, inplace=True)
-            
+
+
+    def filter_by_duration(self, min_duration: float, set_classes: list[str] = None) -> None:
+        """Function to filter all the rows that contain a duration lower than the specified by the user.
+
+        Args:
+            min_duration (float): The min duration specified in seconds.
+            set_classes (list[str]): The set of classes to apply this filter. If None, then applies to all classes
+        """
+        self.df["duration"] = self.df["tmax"] - self.df["tmin"]
+
+        if set_classes == None:
+            self.df = self.df[self.df["duration"] > min_duration]
+        else:
+            self.df = self.df[~((self.df["final_source"].isin(set_classes)) & (self.df["duration"] < min_duration))]
+        
+        self.df.reset_index(drop=True, inplace=True)
+
 
     def split_train_test_balanced(self, test_size=0.2, random_state=None) -> None:
         """
