@@ -190,6 +190,7 @@ class PasstModel():
         self.results_folder = Path(results_folder)
         path_model = Path(path_model)
         self.opt.weights_path = path_model
+
         with open(str(path_model.parent / "class_dict.json"),"r",encoding="utf-8") as f:
             class_dict = json.load(f)
         self.n_classes = len(class_dict)
@@ -197,37 +198,74 @@ class PasstModel():
         model.eval()
         logging.info("Weights succesfully loaded into the model")
 
-        y_list, sr = process_audio_for_inference(path_audio=self.data_path,
-                            desired_sr=self.yaml["sr"],
-                            desired_duration=self.yaml["duration"])
+        if self.data_path.is_file():
+            y_list, sr = process_audio_for_inference(path_audio=self.data_path,
+                                desired_sr=self.yaml["sr"],
+                                desired_duration=self.yaml["duration"])
 
-        assert sr == self.yaml["sr"], "inconsistent sampling rate"
-        class_list =  [key for key, value in sorted(class_dict.items(), key=lambda item: item[1])]
-        results = []
+            assert sr == self.yaml["sr"], "inconsistent sampling rate"
+            class_list =  [key for key, value in sorted(class_dict.items(), key=lambda item: item[1])]
+            results = []
 
-        with torch.no_grad():
-            for audio_wave in tqdm(y_list, desc="predict:"):
-                if audio_wave.shape[1] == 0:
-                    continue
-                start = time.time()
-                if self.opt.gpu:
-                    audio_wave = audio_wave.cuda()
-                logits = model(audio_wave)
-                precentage = torch.nn.Softmax(dim=1)(logits)
-                _, predicted = torch.max(logits.data, 1)
-                inferece_time = time.time()- start
+            with torch.no_grad():
+                for audio_wave in tqdm(y_list, desc="predict:"):
+                    if audio_wave.shape[1] == 0:
+                        continue
+                    start = time.time()
+                    if self.opt.gpu:
+                        audio_wave = audio_wave.cuda()
+                    logits = model(audio_wave)
+                    precentage = torch.nn.Softmax(dim=1)(logits)
+                    _, predicted = torch.max(logits.data, 1)
+                    inferece_time = time.time()- start
 
-                for i in range(len(predicted.cpu().numpy())):
-                    confidence_by_class = dict(zip(class_list,precentage.cpu().numpy()[i]))
-                    results.append({"Predicted Class" : class_list[predicted.cpu().numpy()[i]],
-                                    "Confidence by class" : confidence_by_class,
-                                    "Inference time" : inferece_time
-                                    }
-                        )
+                    for i in range(len(predicted.cpu().numpy())):
+                        confidence_by_class = dict(zip(class_list,precentage.cpu().numpy()[i]))
+                        results.append({"Predicted Class" : class_list[predicted.cpu().numpy()[i]],
+                                        "Confidence by class" : confidence_by_class,
+                                        "Inference time" : inferece_time
+                                        }
+                            )
 
-        logging.info(results)
-        with open(str(Path(results_folder) / "predictions.json"), "w", encoding="utf-8") as f:
-            json.dump(results, f, default=str)
+            logging.info(results)
+            with open(str(Path(results_folder) / "predictions.json"), "w", encoding="utf-8") as f:
+                json.dump(results, f, default=str)
+        
+        elif self.data_path.is_dir():
+            audios = [os.path.join(self.data_path, audio) for audio in os.listdir(self.data_path)]
+            
+            for audio in audios:
+                y_list, sr = process_audio_for_inference(path_audio=audio,
+                                    desired_sr=self.yaml["sr"],
+                                    desired_duration=self.yaml["duration"])
+
+                assert sr == self.yaml["sr"], "inconsistent sampling rate"
+                class_list =  [key for key, value in sorted(class_dict.items(), key=lambda item: item[1])]
+                results = []
+
+                with torch.no_grad():
+                    for audio_wave in tqdm(y_list, desc="predict:"):
+                        if audio_wave.shape[1] == 0:
+                            continue
+                        start = time.time()
+                        if self.opt.gpu:
+                            audio_wave = audio_wave.cuda()
+                        logits = model(audio_wave)
+                        precentage = torch.nn.Softmax(dim=1)(logits)
+                        _, predicted = torch.max(logits.data, 1)
+                        inferece_time = time.time()- start
+
+                        for i in range(len(predicted.cpu().numpy())):
+                            confidence_by_class = dict(zip(class_list,precentage.cpu().numpy()[i]))
+                            results.append({"Predicted Class" : class_list[predicted.cpu().numpy()[i]],
+                                            "Confidence by class" : confidence_by_class,
+                                            "Inference time" : inferece_time
+                                            }
+                                )
+
+                logging.info(results)
+                with open(str(Path(results_folder) / f'predictions_{os.path.splitext(os.path.basename(audio))[0]}.json'), "w", encoding="utf-8") as f:
+                    json.dump(results, f, default=str)
 
 
     def test_model(self, model, dataloader, results_folder, title=""):
