@@ -414,27 +414,56 @@ class EffAtModel():
             class_map = json.load(f)
         inverse_class_map = {v: k for k, v in class_map.items()}
 
-        outs, embs = [], []
-        preds = {}
-        with torch.no_grad():
-            y, _ = process_audio_for_inference(path_audio=path_data,
-                                                desired_sr=self.yaml["sr"],
-                                                desired_duration=self.yaml["duration"])
-        
-            for i in tqdm(range(y.shape[1])):
-                output, embeddings = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))  # Saving embeddings but not necessary
-                outs.append(output)
-                softmax = nn.Softmax(dim=1)
-                percentages = softmax(output)
-                predictions = torch.argmax(percentages).item()
-                preds[f"chunk_{i}"] = {
-                    'Predicted Class': inverse_class_map[predictions],
-                    'Confidence per class': {k: float(percentages.cpu().numpy()[0, idx]) for idx, k in enumerate(class_map.keys())}
-                }
-                embs.append(embeddings)
+        if os.path.isfile(path_data):
+            outs, embs = [], []
+            preds = {}
+            with torch.no_grad():
+                y, _ = process_audio_for_inference(path_audio=path_data,
+                                                    desired_sr=self.yaml["sr"],
+                                                    desired_duration=self.yaml["duration"])
+            
+                for i in tqdm(range(y.shape[1])):
+                    output, embeddings = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))  # Saving embeddings but not necessary
+                    outs.append(output)
+                    softmax = nn.Softmax(dim=1)
+                    percentages = softmax(output)
+                    predictions = torch.argmax(percentages).item()
+                    preds[f"chunk_{i}"] = {
+                        'Predicted Class': inverse_class_map[predictions],
+                        'Confidence per class': {k: float(percentages.cpu().numpy()[0, idx]) for idx, k in enumerate(class_map.keys())}
+                    }
+                    embs.append(embeddings)
 
-        with open(self.results_folder / 'predictions.json', "w") as f:
-            json.dump(preds, f)
+            with open(self.results_folder / 'predictions.json', "w") as f:
+                json.dump(preds, f)
+        
+
+        elif os.path.isdir(path_data):
+            all_files = [os.path.join(path_data, file) for file in os.listdir(path_data)]
+            with torch.no_grad():
+                for file in all_files:
+                    outs = []
+                    preds = {}
+                    y, _ = process_audio_for_inference(path_audio=file,
+                                                       desired_sr=self.yaml["sr"],
+                                                       desired_duration=self.yaml["duration"])
+            
+                    for i in tqdm(range(y.shape[1])):
+                        output, _ = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))
+                        outs.append(output)
+                        softmax = nn.Softmax(dim=1)
+                        percentages = softmax(output)
+                        predictions = torch.argmax(percentages).item()
+                        preds[f"chunk_{i}"] = {
+                            'Predicted Class': inverse_class_map[predictions],
+                            'Confidence per class': {k: float(percentages.cpu().numpy()[0, idx]) for idx, k in enumerate(class_map.keys())}
+                        }
+
+                        with open(self.results_folder / f'predictions_{os.path.splitext(os.path.basename(file))[0]}.json', "w") as f:
+                            json.dump(preds, f)
+
+
+
 
 
     def plot_results(self, train_loss: list, test_loss: list, train_acc: list, test_acc: list) -> None:
