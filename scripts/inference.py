@@ -40,8 +40,7 @@ def main():
 
 
     model.inference(results_folder=results_folder, path_model=PATH_MODEL_TEST, path_data=INFERENCE_DATA_PATH)
-    # visualize_inference(path_json=os.path.join(model.results_folder, 'predictions.json'), path_audio=INFERENCE_DATA_PATH, path_yaml=YAML_PATH, model=MODEL_TYPE.lower())
-    visualize_inference(path_json=model.results_folder, path_audio=INFERENCE_DATA_PATH, path_yaml=YAML_PATH, model=MODEL_TYPE.lower())
+    visualize_inference(path_json=os.path.join(model.results_folder, 'predictions.json'), path_audio=INFERENCE_DATA_PATH, path_yaml=YAML_PATH, model=MODEL_TYPE.lower())
 
 if __name__ == "__main__":
     main()
