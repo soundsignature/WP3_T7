@@ -546,4 +546,8 @@ class LibrosaSpec(nn.Module):
         S_normalized = (S_dB - S_dB.min()) / (S_dB.max() - S_dB.min())  # Data between 0 and 1
         return torch.Tensor(S_normalized).to(self.device)
 
-        
+def normalize_signal(x : np.ndarray):
+    x = x - np.mean(x)
+    max_dev = np.max(np.abs(x))
+
+    return (x) / (max_dev)

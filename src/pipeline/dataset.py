@@ -28,7 +28,7 @@ import torchaudio
 from scipy.signal import get_window
 import random
 
-from .utils import SuperpositionType
+from .utils import SuperpositionType,normalize_signal
 
 logging.basicConfig(level=logging.INFO)
 
@@ -428,6 +428,7 @@ class EcossDataset:
             split = row["split"]
             # Extract only the label segment
             signal = original_signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
+            signal = normalize_signal(signal)
             logger.debug(f"{signal}")
             if self.window:
                 signal = signal * get_window('hamming', len(signal))
@@ -644,7 +645,7 @@ class EcossDataset:
             # Save each segment as a separate wave file
             for idx, segment in enumerate(segments):
                 saving_filename = str(filename) + '-' + f"{idx:03d}" + '.wav'
-                sf.write(saving_filename, segment, int(self.sr),"DOUBLE")
+                sf.write(saving_filename, segment, int(self.sr))
         else:
             raise ValueError(f"saving_on_disk should be pickle or wav, not {self.saving_on_disk}")
 
