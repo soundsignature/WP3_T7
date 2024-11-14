@@ -473,35 +473,75 @@ class ValidationPlot:
 def visualize_inference(path_json: str, path_audio: str, path_yaml: str, model: str) -> None:
     yaml_content = load_yaml(path_yaml)
 
-    with open(path_json, 'r') as f:
-        results = json.load(f)
+    if os.path.isfile(path_json) and os.path.isfile(path_json):
+        with open(path_json, 'r') as f:
+            results = json.load(f)
 
-    y, sr = librosa.load(path_audio, sr=None)
-    if sr >= yaml_content["sr"]:
-        y = librosa.resample(y=y, orig_sr=sr, target_sr=yaml_content["sr"])
+        y, sr = librosa.load(path_audio, sr=None)
+        if sr >= yaml_content["sr"]:
+            y = librosa.resample(y=y, orig_sr=sr, target_sr=yaml_content["sr"])
+        else:
+            raise Exception(f"Sampling rate is lower than {yaml_content['sr']} Hz")
+
+        S = librosa.feature.melspectrogram(y=y, sr=yaml_content["sr"], n_mels=128, hop_length=yaml_content["hopsize"], n_fft=yaml_content["n_fft"])
+        S_dB = librosa.power_to_db(S, ref=np.max)
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        img = librosa.display.specshow(S_dB, sr=yaml_content["sr"], hop_length=yaml_content["hopsize"], x_axis='time', y_axis='mel', ax=ax)
+        plt.title(os.path.basename(path_audio))
+        
+        max_time = y.shape[0] / yaml_content["sr"]
+        line_positions = np.arange(0, max_time-1, yaml_content["duration"])
+        
+        if model == 'effat':
+            predicted_classes = [value["Predicted Class"] for key, value in results.items()]
+        elif model == 'passt':
+            predicted_classes = [entry["Predicted Class"] for entry in results]
+
+        for i, pos in enumerate(line_positions):
+            ax.axvline(x=pos, color='red', linewidth=1)
+            ax.text(pos + yaml_content["duration"] / 2, S.shape[0] * 10, predicted_classes[i], color='white', verticalalignment='top', rotation=90)
+
+        plt.show()
+
+    elif os.path.isdir(path_json) and os.path.isdir(path_audio):
+        audios = [os.path.join(path_audio, audio) for audio in os.listdir(path_audio)]
+        for audio in audios:
+            y, sr = librosa.load(audio, sr=None)
+            if sr >= yaml_content["sr"]:
+                y = librosa.resample(y=y, orig_sr=sr, target_sr=yaml_content["sr"])
+            else:
+                raise Exception(f"Sampling rate is lower than {yaml_content['sr']} Hz")
+
+            S = librosa.feature.melspectrogram(y=y, sr=yaml_content["sr"], n_mels=128, hop_length=yaml_content["hopsize"], n_fft=yaml_content["n_fft"])
+            S_dB = librosa.power_to_db(S, ref=np.max)
+            
+            fig, ax = plt.subplots(figsize=(10, 6))
+            img = librosa.display.specshow(S_dB, sr=yaml_content["sr"], hop_length=yaml_content["hopsize"], x_axis='time', y_axis='mel', ax=ax)
+            plt.title(os.path.basename(audio))
+            
+            max_time = y.shape[0] / yaml_content["sr"]
+            line_positions = np.arange(0, max_time-1, yaml_content["duration"])
+            
+            path_jsonfile = os.path.join(path_json, f'predictions_{os.path.splitext(os.path.basename(audio))[0]}.json')
+            with open(path_jsonfile, 'r') as f:
+                results = json.load(f)
+            
+            if model == 'effat':
+                predicted_classes = [value["Predicted Class"] for key, value in results.items()]
+            elif model == 'passt':
+                predicted_classes = [entry["Predicted Class"] for entry in results]
+
+            for i, pos in enumerate(line_positions):
+                ax.axvline(x=pos, color='red', linewidth=1)
+                ax.text(pos + yaml_content["duration"] / 2, S.shape[0] * 10, predicted_classes[i], color='white', verticalalignment='top', rotation=90)
+
+            plt.show()
+        
     else:
-        raise Exception(f"Sampling rate is lower than {yaml_content['sr']} Hz")
+        logger.error("path_json and path_audio should be both file or folder")
 
-    S = librosa.feature.melspectrogram(y=y, sr=yaml_content["sr"], n_mels=128, hop_length=yaml_content["hopsize"], n_fft=yaml_content["n_fft"])
-    S_dB = librosa.power_to_db(S, ref=np.max)
-    
-    fig, ax = plt.subplots(figsize=(10, 6))
-    img = librosa.display.specshow(S_dB, sr=yaml_content["sr"], hop_length=yaml_content["hopsize"], x_axis='time', y_axis='mel', ax=ax)
-    plt.title(os.path.basename(path_audio))
-    
-    max_time = y.shape[0] / yaml_content["sr"]
-    line_positions = np.arange(0, max_time-1, yaml_content["duration"])
-    
-    if model == 'effat':
-        predicted_classes = [value["Predicted Class"] for key, value in results.items()]
-    elif model == 'passt':
-        predicted_classes = [entry["Predicted Class"] for entry in results]
 
-    for i, pos in enumerate(line_positions):
-        ax.axvline(x=pos, color='red', linewidth=1)
-        ax.text(pos + yaml_content["duration"] / 2, S.shape[0] * 10, predicted_classes[i], color='white', verticalalignment='top', rotation=90)
-
-    plt.show()
 
 
 class SuperpositionType(Enum):
@@ -514,3 +554,36 @@ class SuperpositionType(Enum):
     IS_CONTAINED = 4
 
 
+class LibrosaSpec(nn.Module):
+    def __init__(self, mel: bool, sr: float = 32_000, win_length: int = 800, hopsize: int = 320, n_fft: int = 1024, n_mels: int = 128):
+        torch.nn.Module.__init__(self)  # To make the class callable
+        self.mel = mel
+        self.sr = sr
+        self.win_length=win_length
+        self.hopsize=hopsize
+        self.n_fft = n_fft
+        self.n_mels = n_mels
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    def forward(self, y):
+        y = y.cpu().detach().numpy()
+        if self.mel:
+            S = librosa.feature.melspectrogram(y=y,
+                                               sr=self.sr,
+                                               n_mels=self.n_mels,
+                                               hop_length=self.hopsize,
+                                               win_length=self.win_length,
+                                               n_fft=self.n_fft)
+            S_dB = librosa.power_to_db(S)
+
+        else:
+            S = np.abs(librosa.stft(y,
+                                    n_fft=self.n_fft,
+                                    hop_length=self.hopsize,
+                                    win_length=self.win_length))
+            S_dB = librosa.amplitude_to_db(S, ref=np.max)
+
+        S_normalized = (S_dB - S_dB.min()) / (S_dB.max() - S_dB.min())  # Data between 0 and 1
+        return torch.Tensor(S_normalized).to(self.device)
+
+        

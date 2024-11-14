@@ -25,6 +25,7 @@ from mutagen.flac import FLAC
 from tqdm import tqdm
 import logging
 import torchaudio
+from scipy.signal import get_window
 import random
 
 from .utils import SuperpositionType
@@ -62,7 +63,7 @@ class EcossDataset:
     several datasets from the FTP.
     """
     def __init__(self, path_dataset: str, path_store_data: str, pad_mode: str,
-                 sr: float, duration: float, saving_on_disk: bool, desired_margin: float) -> None:
+                 sr: float, duration: float, saving_on_disk: bool, desired_margin: float, window: bool) -> None:
         """The constructor for the EcossDataset class.
 
         Args:
@@ -73,6 +74,7 @@ class EcossDataset:
             duration (float): The desired duration for the clips generated for the AI models.
             saving_on_disk (bool): If set to True, the generated data will be saved on disk.
             desired_margin (float): Is used in case that we cant visualize in the spectrogram the whole signature, and if we cant visualize this percentage we discard the signal (e.g 0.5)
+            window (bool): If True, a Hamming window is used to cut the signals.
         """
         self.path_dataset = path_dataset
         self.path_store_data = path_store_data
@@ -87,6 +89,7 @@ class EcossDataset:
             self.path_dataset = os.path.join(self.path_dataset, 'samples for training')
         self.path_annots = os.path.join(self.path_dataset, 'annotations.csv')
         self.df = pd.read_csv(self.path_annots, sep=";")
+        self.window = window
 
     @staticmethod
     def concatenate_ecossdataset(dataset_list: list):
@@ -111,6 +114,7 @@ class EcossDataset:
         save0 = dataset_list[0].saving_on_disk
         path_store0 = dataset_list[0].path_store_data
         desired_margin0 = dataset_list[0].desired_margin
+        window0 = dataset_list[0].window
         #Start populatinf DataFrame list
         df_list = [dataset_list[0].df]
         #Iterate over list to check appropiate values, exiting function it variables do not match
@@ -123,7 +127,7 @@ class EcossDataset:
         #Create EcossDataset object with concatenated info
         ConcatenatedEcoss = EcossDataset(path_dataset=path_dataset0, path_store_data=path_store0,
                                          pad_mode=padding0, sr=sr0, duration=duration0, saving_on_disk=save0,
-                                         desired_margin=desired_margin0)
+                                         desired_margin=desired_margin0, window=window0)
         ConcatenatedEcoss.df = pd.concat(df_list,ignore_index=True)
         return ConcatenatedEcoss
 
@@ -207,7 +211,24 @@ class EcossDataset:
             
         self.df.drop(indexes_delete, inplace=True)
         self.df.reset_index(drop=True, inplace=True)
-            
+
+
+    def filter_by_duration(self, min_duration: float, set_classes: list[str] = None) -> None:
+        """Function to filter all the rows that contain a duration lower than the specified by the user.
+
+        Args:
+            min_duration (float): The min duration specified in seconds.
+            set_classes (list[str]): The set of classes to apply this filter. If None, then applies to all classes
+        """
+        self.df["duration"] = self.df["tmax"] - self.df["tmin"]
+
+        if set_classes == None:
+            self.df = self.df[self.df["duration"] > min_duration]
+        else:
+            self.df = self.df[~((self.df["final_source"].isin(set_classes)) & (self.df["duration"] < min_duration))]
+        
+        self.df.reset_index(drop=True, inplace=True)
+
 
     def split_train_test_balanced(self, test_size=0.2, random_state=None) -> None:
         """
@@ -407,6 +428,10 @@ class EcossDataset:
             split = row["split"]
             # Extract only the label segment
             signal = original_signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
+            logger.debug(f"{signal}")
+            if self.window:
+                signal = signal * get_window('hamming', len(signal))
+                logger.debug(f"Signal after the hamming window {signal}")
             # Process the signal
             segments = self.process_data(signal, original_sr)
             # Count how many times
@@ -474,6 +499,10 @@ class EcossDataset:
         # Extract each segment and append to the list
         for i in range(n_segments):
             segment = signal[(i*self.segment_length):((i+1)*self.segment_length)]
+            logger.debug(f"{segment}")
+            if self.window:
+                segment = segment * get_window('hamming', ((i+1)*self.segment_length) - (i*self.segment_length))
+                logger.debug(f"Segment after the hamming window {segment}")
             segments.append(segment)
         return segments
 
@@ -615,7 +644,7 @@ class EcossDataset:
             # Save each segment as a separate wave file
             for idx, segment in enumerate(segments):
                 saving_filename = str(filename) + '-' + f"{idx:03d}" + '.wav'
-                sf.write(saving_filename, segment, int(self.sr))
+                sf.write(saving_filename, segment, int(self.sr),"DOUBLE")
         else:
             raise ValueError(f"saving_on_disk should be pickle or wav, not {self.saving_on_disk}")
 

@@ -46,6 +46,8 @@ EXP_NAME = # desired name of the folder to store the results
 NEW_ONTOLOGY = 'Ship,Biological,...' # Top level to group labels
 UNWANTED_LABELS = 'Tursiops,SpermWhale,...' # Labels to drop
 TEST_SIZE = # Size of the test set in decimal format (e.g. 0.3)
+MIN_DURATION = # The amount of seconds that each signal should atleast have to be preserved on the dataset
+CLASSES_FILTER_TIME # A set of classes to apply this min_duration filter. Should be formatted like this: 'Delphinids,Tursiops'. If we want to apply the filter to all our classes simply use an empy string (CLASSES_FILTER_TIME = '')
 
 # Train parameters
 ANNOTATIONS_PATHS= 'path/to/data1,path/to/data1,...'
@@ -56,7 +58,7 @@ PAD_MODE = # zeros, random or white_noise
 OVERWRITE_DATA = # True or False. If PATH_STORE_DATA already exists and OVERWRITE_DATA = False, it doesn't process the data, just load the data from the path defined.
 
 # Inference / Test parameters
-INFERENCE_DATA_PATH = path/to/file/to/predict
+INFERENCE_DATA_PATH = path/to/file/to/predict  # Can also the path to a folder with more than one audio, inference will be performed in all the audios in the folder. Only audios should be inside that folder.
 PATH_MODEL_TEST = path/to/trained/model/weights
 
 # Check labels
