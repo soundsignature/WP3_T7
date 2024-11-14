@@ -941,7 +941,7 @@ class EcossDataset:
             dataset = []
             for _, row in self.df.iterrows():
                 duration.append(float(row["tmax"]) - float(row["tmin"]))
-                dataset.append(row['file'].split('/')[-2])
+                dataset.append(os.path.dirname(os.path.dirname(row['file'])))
             self.df['duration'] = duration
             self.df['dataset'] = dataset
 
