@@ -644,7 +644,7 @@ class EcossDataset:
             # Save each segment as a separate wave file
             for idx, segment in enumerate(segments):
                 saving_filename = str(filename) + '-' + f"{idx:03d}" + '.wav'
-                sf.write(saving_filename, segment, int(self.sr),"DOUBLE")
+                sf.write(saving_filename, segment, int(self.sr))
         else:
             raise ValueError(f"saving_on_disk should be pickle or wav, not {self.saving_on_disk}")
 
