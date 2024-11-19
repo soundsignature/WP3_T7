@@ -21,6 +21,8 @@ import torch
 import numpy as np
 import logging
 from enum import Enum
+from torch.nn.functional import pad
+import math
 
 # UNWANTED_LABELS = ["Undefined"]
 logging.basicConfig(level=logging.INFO)
@@ -73,40 +75,41 @@ def create_exp_dir(name: str, model: str, task: str) -> str:
     return str(exp_path)
 
 
-def process_audio_for_inference(path_audio: str, desired_sr: float, desired_duration: float):
-    """It processes audios for inference purposes
+def process_audio_for_inference(path_audio: str, desired_sr: float, desired_duration: float) -> tuple[torch.Tensor, float, float]:
+    """Processes audios for inference purposes ensuring each segment is of desired duration.
 
     Args:
         path_audio (str): Path to the audio that needs to be processed
         desired_sr (float): The desired sampling rate
-        desired_duration (float): The desired duration
+        desired_duration (float): The desired duration in seconds
 
     Raises:
         ValueError: In case the sampling rate of a signal is lower than the desired one.
 
     Returns:
-        torch.Tensor: The processed signal
+        tuple: The processed signal tensor, updated sampling rate, and the original audio duration
     """
     y, sr = torchaudio.load(path_audio)
-    resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=desired_sr)
-    
-    # Check sampling rate
+
     if sr < desired_sr:
         raise ValueError(f"Sampling rate of {sr} Hz is lower than the desired sampling rate of {desired_sr} Hz.")
-    if sr > desired_sr:
+    
+    if sr != desired_sr:
+        resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=desired_sr)
         y = resampler(y)
         sr = desired_sr 
 
-    # Check length
-    length = int(desired_duration * desired_sr)
-    if y.size(1) < length:
-        y = torch.nn.functional.pad(y, (0, length - y.size(1)))
-        y = y.unsqueeze(0)
-    elif y.size(1) > length:
-        chunk_size = desired_sr * desired_duration
-        y = y.unfold(dimension=1, size=int(chunk_size), step=int(chunk_size))
-    else:
-        y = y.unsqueeze(0)
+    length = int(desired_duration * sr)
+
+    total_length = y.size(1)
+    num_chunks = (total_length + length - 1) // length  # This rounds up to ensure all data is included
+
+    # Extend y to match the exact multiples of 'length', in order to torch.unfold to generate all the chunks
+    if total_length < num_chunks * length:
+        padding_size = num_chunks * length - total_length
+        y = torch.nn.functional.pad(y, (0, padding_size))
+
+    y = y.unfold(dimension=1, size=length, step=length)
 
     return y, sr
 
@@ -502,6 +505,7 @@ def visualize_inference(path_json: str, path_audio: str, path_yaml: str, model: 
             ax.axvline(x=pos, color='red', linewidth=1)
             ax.text(pos + yaml_content["duration"] / 2, S.shape[0] * 10, predicted_classes[i], color='white', verticalalignment='top', rotation=90)
 
+        plt.set_cmap('gray')
         plt.show()
 
     elif os.path.isdir(path_json) and os.path.isdir(path_audio):

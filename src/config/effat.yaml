@@ -1,5 +1,5 @@
 augmentmel: False  # Decides if we use LibrosaSpec or AugmentMelSTFT
-melspec: True  # If we have selected LibrosaSpec, it decides if we compute a mel spectrogram or a normal (linear y) spectrogram
+melspec: False  # If we have selected LibrosaSpec, it decides if we compute a mel spectrogram or a normal (linear y) spectrogram
 
 # Augment mel
 freqm: 0
@@ -27,7 +27,7 @@ n_epochs: 10
 
 #EcossDataset
 sr: 32000
-duration: 5
+duration: 3
 window: True
 
 # If we want to test on train set
