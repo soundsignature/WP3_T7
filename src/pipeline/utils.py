@@ -93,8 +93,8 @@ def process_audio_for_inference(path_audio: str, desired_sr: float, desired_dura
         raise ValueError(f"Sampling rate of {sr} Hz is lower than the desired sampling rate of {desired_sr} Hz.")
     
     if sr != desired_sr:
-        resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=desired_sr)
-        y = resampler(y)
+        y = librosa.resample(y=y.detach().numpy(), orig_sr=sr, target_sr=32_000)
+        y = torch.Tensor(y)
         sr = desired_sr 
 
     length = int(desired_duration * sr)
