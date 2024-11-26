@@ -684,6 +684,7 @@ class EcossDataset:
                 times[row["final_source"]] = float(row["tmax"]) - float(row["tmin"])
             else:
                 times[row["final_source"]] += float(row["tmax"]) - float(row["tmin"])
+    
         plt.figure(figsize=(8,6))
         plt.bar(range(0, len(times)), times.values())
         plt.xticks(range(0, len(times)),
@@ -963,3 +964,34 @@ class EcossDataset:
         else:
             return False
 
+    def filter_amount(self, reducible_classes = None, target_count = None):
+        if reducible_classes and target_count:
+            duration = []
+            dataset = []
+            for _, row in self.df.iterrows():
+                duration.append(float(row["tmax"]) - float(row["tmin"]))
+                dataset.append(os.path.dirname(os.path.dirname(row['file'])))
+            self.df['duration'] = duration
+            self.df['dataset'] = dataset
+
+            for i, cl in enumerate(reducible_classes):
+                just_cl = self.df[self.df['final_source'] == cl]
+
+                index_to_keep = []
+                just_cl_grouped = just_cl.groupby('dataset')
+                cond = True
+                while target_count[i] > 0 and cond:
+                    cond = False
+                    for name, df_group in just_cl_grouped:
+                        ind = random.randint(0, len(df_group)-1)
+
+                        if df_group.iloc[ind]['duration'] > 200: continue
+                        if df_group.index[ind] in index_to_keep: continue
+
+                        index_to_keep.append(df_group.index[ind])
+                        target_count[i] -= df_group.iloc[ind]['duration'] 
+                        cond = True
+
+                
+                self.df = self.df.drop(self.df.index[((self.df['final_source'] == cl)* ~self.df.index.isin(index_to_keep))])
+                                

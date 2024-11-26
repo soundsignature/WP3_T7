@@ -29,15 +29,16 @@ def main():
     UNWANTED_LABELS = os.getenv("UNWANTED_LABELS").split(',')
     TEST_SIZE = float(os.getenv("TEST_SIZE"))
     DESIRED_MARGIN = float(os.getenv("DESIRED_MARGIN"))
+    REDUCIBLE_CLASSES = os.getenv("REDUCIBLE_CLASSES").split(',')
+    TARGET_COUNT = os.getenv("TARGET_COUNT").split(',')
     PATH_STORE_DATA = os.getenv("PATH_STORE_DATA")
     PAD_MODE = os.getenv("PAD_MODE")
     OVERWRITE_DATA = os.getenv("OVERWRITE_DATA", 'False').lower() in ('true', '1', 't')
+    
     MIN_DURATION = float(os.getenv("MIN_DURATION"))
     CLASSES_FILTER_TIME = os.getenv("CLASSES_FILTER_TIME").split(',')
     if CLASSES_FILTER_TIME[0] == "":
         CLASSES_FILTER_TIME = None
-
-    
 
     if len(NEW_ONTOLOGY) == 1:
         if NEW_ONTOLOGY[0] == '':
@@ -46,6 +47,11 @@ def main():
     if len(UNWANTED_LABELS) == 1:
         if UNWANTED_LABELS[0] == '':
             UNWANTED_LABELS = None
+
+    if REDUCIBLE_CLASSES == "" or TARGET_COUNT == "":
+        REDUCIBLE_CLASSES = None
+        TARGET_COUNT = None
+
     sr =32000
     ecoss_list = []
     yaml_content = load_yaml(YAML_PATH)
@@ -65,6 +71,7 @@ def main():
             shutil.rmtree(Path(PATH_STORE_DATA) / "train")
             shutil.rmtree(Path(PATH_STORE_DATA) / "test")
 
+
         for annot_path in ANNOTATIONS_PATHS:
             logging.info(annot_path)
             ecoss_data1 = EcossDataset(annot_path, PATH_STORE_DATA, PAD_MODE, sr, duration, "wav", DESIRED_MARGIN, yaml_content["window"])
@@ -81,7 +88,9 @@ def main():
         ecoss_data.filter_by_duration(min_duration=MIN_DURATION, set_classes=CLASSES_FILTER_TIME)
         logging.info(f"\nThe number of signals after filtering by duration is {len(ecoss_data.df)}\n")
         ecoss_data.filter_by_freqlims()
+        ecoss_data.filter_amount(reducible_classes = REDUCIBLE_CLASSES, target_count = [int(item) for item in TARGET_COUNT])
         logging.info(f"\nThe number of signals after filtering by frequency limits is {len(ecoss_data.df)}\n")
+
         ecoss_data.generate_insights()
         ecoss_data.split_train_test_balanced(test_size=TEST_SIZE, random_state=27)
         signals,labels,split_info = ecoss_data.process_all_data()

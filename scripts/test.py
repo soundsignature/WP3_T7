@@ -25,6 +25,9 @@ def main():
     UNWANTED_LABELS = os.getenv("UNWANTED_LABELS").split(',')
     PATH_MODEL_TEST = os.getenv("PATH_MODEL_TEST")
     TEST_SIZE = os.getenv("TEST_SIZE")
+    DESIRED_MARGIN = float(os.getenv("DESIRED_MARGIN"))
+    REDUCIBLE_CLASSES = os.getenv("REDUCIBLE_CLASSES")
+    TARGET_COUNT = os.getenv("TARGET_COUNT")
 
     if len(NEW_ONTOLOGY) == 1:
         if NEW_ONTOLOGY[0] == '':
@@ -34,6 +37,9 @@ def main():
         if UNWANTED_LABELS[0] == '':
             UNWANTED_LABELS = None
 
+    if REDUCIBLE_CLASSES == "" or TARGET_COUNT == "":
+        REDUCIBLE_CLASSES = None
+        TARGET_COUNT = None
     sr = 32_000
     ecoss_list = []
     yaml_content = load_yaml(YAML_PATH)
@@ -50,8 +56,12 @@ def main():
     length_prior_filter = len(ecoss_data.df)
     ecoss_data.filter_lower_sr()
     ecoss_data.generate_insights()
-    ecoss_data.split_train_test_balanced(test_size=TEST_SIZE, random_state=27)
-    signals,labels,split_info = ecoss_data.process_all_data()
+    if REDUCIBLE_CLASSES and TARGET_COUNT:
+        signals,labels,split_info = None, None, None
+    else:
+        ecoss_data.split_train_test_balanced(test_size=TEST_SIZE, random_state=27)
+        signals,labels,split_info = ecoss_data.process_all_data()
+    
     data_path = ecoss_data.path_store_data
 
     results_folder = create_exp_dir(name = EXP_NAME, model=MODEL_TYPE, task= "test")
