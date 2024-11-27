@@ -970,7 +970,7 @@ class EcossDataset:
             dataset = []
             for _, row in self.df.iterrows():
                 duration.append(float(row["tmax"]) - float(row["tmin"]))
-                dataset.append(os.path.dirname(os.path.dirname(row['file'])))
+                dataset.append(os.path.dirname(row['file']))
             self.df['duration'] = duration
             self.df['dataset'] = dataset
 
@@ -982,16 +982,25 @@ class EcossDataset:
                 cond = True
                 while target_count[i] > 0 and cond:
                     cond = False
-                    for name, df_group in just_cl_grouped:
-                        ind = random.randint(0, len(df_group)-1)
+                    if len(just_cl_grouped)>1:
+                        for name, df_group in just_cl_grouped:
 
-                        if df_group.iloc[ind]['duration'] > 200: continue
-                        if df_group.index[ind] in index_to_keep: continue
+                            ind = random.randint(0, len(df_group)-1)
 
-                        index_to_keep.append(df_group.index[ind])
-                        target_count[i] -= df_group.iloc[ind]['duration'] 
-                        cond = True
+                            if df_group.iloc[ind]['duration'] > 200: continue
+                            if df_group.index[ind] in index_to_keep: continue
 
-                
+                            index_to_keep.append(df_group.index[ind])
+                            target_count[i] -= df_group.iloc[ind]['duration'] 
+                            cond = True
+                    else:
+                        while target_count[i] > 0:
+                            ind = random.randint(0, len(just_cl)-1)
+                            if just_cl.iloc[ind]['duration'] > 200: continue
+                            if just_cl.index[ind] in index_to_keep: continue
+
+                            index_to_keep.append(just_cl.index[ind])
+                            target_count[i] -= just_cl.iloc[ind]['duration'] 
+                            cond = True
+
                 self.df = self.df.drop(self.df.index[((self.df['final_source'] == cl)* ~self.df.index.isin(index_to_keep))])
-                                
