@@ -28,7 +28,7 @@ import pandas as pd
 from typing import Tuple, Dict, Union
 import librosa
 
-from .utils import AugmentMelSTFT, EffATWrapper, process_audio_for_inference, LibrosaSpec
+from .utils import AugmentMelSTFT, EffATWrapper, process_audio_for_inference, LibrosaSpec,save_confusion_matrix
 from models.effat_repo.models.mn.model import get_model as get_mn
 from models.effat_repo.models.dymn.model import get_model as get_dymn
 
@@ -303,6 +303,8 @@ class EffAtModel():
 
                 # Saving weights, results and curves
                 self.plot_results(train_losses, test_losses, train_accs, test_accs)
+                ordered_labels = [k for k, v in sorted(label_encoder.items(), key=lambda item: item[1])]
+                save_confusion_matrix(unique_labels=ordered_labels,exp_folder=self.results_folder,true_labels=all_labels,predicted_labels=all_preds,title="cm")
                 self.plot_cm(cm)
                 self.save_weights(optimizer)
                 metrics = {"train_acc": train_accuracy,
@@ -384,6 +386,7 @@ class EffAtModel():
 
         self.save_results(class_map, metrics)
         cm = confusion_matrix(all_labels, all_preds)
+        
         self.plot_cm(cm)
 
 
