@@ -24,6 +24,9 @@ import wave
 from mutagen.flac import FLAC
 from tqdm import tqdm
 import logging
+import torchaudio
+from scipy.signal import get_window
+import random
 
 from .utils import SuperpositionType
 
@@ -60,7 +63,7 @@ class EcossDataset:
     several datasets from the FTP.
     """
     def __init__(self, path_dataset: str, path_store_data: str, pad_mode: str,
-                 sr: float, duration: float, saving_on_disk: bool) -> None:
+                 sr: float, duration: float, saving_on_disk: bool, desired_margin: float, window: bool) -> None:
         """The constructor for the EcossDataset class.
 
         Args:
@@ -70,6 +73,8 @@ class EcossDataset:
             sr (float): The sampling rate that the generated data will have. If signals with lower sampling rate are found, they are discarded.
             duration (float): The desired duration for the clips generated for the AI models.
             saving_on_disk (bool): If set to True, the generated data will be saved on disk.
+            desired_margin (float): Is used in case that we cant visualize in the spectrogram the whole signature, and if we cant visualize this percentage we discard the signal (e.g 0.5)
+            window (bool): If True, a Hamming window is used to cut the signals.
         """
         self.path_dataset = path_dataset
         self.path_store_data = path_store_data
@@ -78,9 +83,13 @@ class EcossDataset:
         self.duration = duration
         self.segment_length = int(self.duration * self.sr)
         self.saving_on_disk = saving_on_disk
-        self.path_annots = os.path.join(self.path_dataset, 'samples for training', 'annotations.csv')
+        self.desired_margin = desired_margin
         self.dataset_name = os.path.basename(os.path.normpath(self.path_dataset))
+        if os.path.exists(os.path.join(self.path_dataset, 'samples for training')):
+            self.path_dataset = os.path.join(self.path_dataset, 'samples for training')
+        self.path_annots = os.path.join(self.path_dataset, 'annotations.csv')
         self.df = pd.read_csv(self.path_annots, sep=";")
+        self.window = window
 
     @staticmethod
     def concatenate_ecossdataset(dataset_list: list):
@@ -104,18 +113,21 @@ class EcossDataset:
         padding0 = dataset_list[0].pad_mode
         save0 = dataset_list[0].saving_on_disk
         path_store0 = dataset_list[0].path_store_data
+        desired_margin0 = dataset_list[0].desired_margin
+        window0 = dataset_list[0].window
         #Start populatinf DataFrame list
         df_list = [dataset_list[0].df]
         #Iterate over list to check appropiate values, exiting function it variables do not match
         for dataset in dataset_list[1:]:
-            if dataset.sr != sr0 or dataset.duration != duration0 or dataset.pad_mode != padding0 or dataset.saving_on_disk != save0:
+            if dataset.sr != sr0 or dataset.duration != duration0 or dataset.pad_mode != padding0 or dataset.saving_on_disk != save0 or dataset.desired_margin != desired_margin0:
                 logger.error("The datasets selected do not have the same characteristics")
                 return
             else:
                 df_list.append(dataset.df)
         #Create EcossDataset object with concatenated info
         ConcatenatedEcoss = EcossDataset(path_dataset=path_dataset0, path_store_data=path_store0,
-                                         pad_mode=padding0, sr=sr0, duration=duration0, saving_on_disk=save0)
+                                         pad_mode=padding0, sr=sr0, duration=duration0, saving_on_disk=save0,
+                                         desired_margin=desired_margin0, window=window0)
         ConcatenatedEcoss.df = pd.concat(df_list,ignore_index=True)
         return ConcatenatedEcoss
 
@@ -132,9 +144,8 @@ class EcossDataset:
         None (updates df atribute with an extra columnn named 'file')
         """
         self.df["file"] = ''
-        for i, row in self.df.iterrows():
+        for i, _ in self.df.iterrows():
             self.df.at[i, "file"] = os.path.join(self.path_dataset,
-                                                 'samples for training',
                                                  self.df.at[i, 'reference'])
 
 
@@ -152,26 +163,70 @@ class EcossDataset:
         indexes_delete = []
         for i, row in self.df.iterrows():
             if os.path.isfile(row["file"]):
-                if row["file"].endswith('.wav'):
-                    with wave.open(row["file"], 'rb') as wav_file:
-                        sr = wav_file.getframerate()
-                        if sr < self.sr:
-                            indexes_delete.append(i)
-                            # print(f"Deleting file {row['file']} because it's sampling rate its {sr}")
-                            logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
-                elif row["file"].endswith('.flac'):
-                    audio = FLAC(row["file"])
-                    sr = audio.info.sample_rate
-                    if sr < self.sr:
-                        indexes_delete.append(i)
-                        logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
-                else:
-                    raise ValueError("Unsupported file format. Only WAV and FLAC are supported.")
+                _,sr = torchaudio.load(row["file"],num_frames = 1)
+                if sr < self.sr:
+                    indexes_delete.append(i)
+                    logger.info(f"Deleting file {row['file']} because it's sampling rate its {sr}")
             else:
                 indexes_delete.append(i)
                 logger.info(f"File {row['file']} in the folder is missing")
 
         self.df.drop(indexes_delete, inplace=True)
+        self.df.reset_index(drop=True, inplace=True)
+
+
+    def filter_by_freqlims(self) -> None:
+        """
+        This function filters the signals that we will not be able to visualize due to resampling. There are three main cases:
+
+        1. If the fmin of the sound annotated is bigger than our maximum fmax (sr / 2) we will not be able to see this, so the signal must be discarded
+        2. If the fmax of the sound annotated is lower than our maximum fmax (sr / 2) we will be able to visualize the whole pattern, so we keep it
+        3. If our maximum fmax (sr / 2) is between the fmin and the fmax of the sound annotated, we will use the margin to see the percentage of the signal we could
+            keep and discard if is lower than the desired one.
+    
+        The logic is applied to each row in the df attribute, regardless of the type of sound (e.g. delphinid, ship, etc). It only filters the BackgroundNoise.
+        
+        Returns:
+        None (updates df attribute)
+        """
+        indexes_delete = []
+        fmax_own = self.sr / 2  
+        for i, row in self.df.iterrows():
+            if row["label_source"] != "BackgroundNoise":
+                if row["fmin"] >= fmax_own:
+                    indexes_delete.append(i)
+                    logger.info(f"Index {i} with type {row['label_source']} from file {row['file']} will be deleted because the fmin of the sound is {row['fmin']} and we can only visualize until {fmax_own}")
+                    continue
+                
+                if row["fmax"] <= fmax_own:
+                    continue
+
+                dif_freqs = row["fmax"] - row["fmin"]
+                margin_freqs = fmax_own - row["fmin"]
+                margin_pct = margin_freqs / dif_freqs
+                
+                if margin_pct < self.desired_margin:
+                    logger.info(f"Index {i} with type {row['label_source']} from file {row['file']} will be deleted because we will be able to visualize {margin_pct} of the signal and we wanted atleast {self.desired_margin}")
+                    indexes_delete.append(i)
+            
+        self.df.drop(indexes_delete, inplace=True)
+        self.df.reset_index(drop=True, inplace=True)
+
+
+    def filter_by_duration(self, min_duration: float, set_classes: list[str] = None) -> None:
+        """Function to filter all the rows that contain a duration lower than the specified by the user.
+
+        Args:
+            min_duration (float): The min duration specified in seconds.
+            set_classes (list[str]): The set of classes to apply this filter. If None, then applies to all classes
+        """
+        self.df["duration"] = self.df["tmax"] - self.df["tmin"]
+
+        if set_classes == None:
+            self.df = self.df[self.df["duration"] > min_duration]
+        else:
+            self.df = self.df[~((self.df["final_source"].isin(set_classes)) & (self.df["duration"] < min_duration))]
+        
         self.df.reset_index(drop=True, inplace=True)
 
 
@@ -224,7 +279,10 @@ class EcossDataset:
         Returns:
         None
         """
+        if "overlapping" not in self.df.columns:
+            self.df["overlapping"] = False
         overlap_info_processed = self._extract_overlapping_info()
+        
         self.df["overlap_info_processed"] = overlap_info_processed
         # self.df.dropna(subset=["final_source"],inplace=True)
         self.df["to_delete"] = False
@@ -239,6 +297,8 @@ class EcossDataset:
                 continue
             segments_to_delete = []
             for overlap_idx,tmin,tmax in self.df.loc[eval_idx]["overlap_info_processed"]:
+                tmin = float(tmin)
+                tmax = float(tmax)
                 if overlap_idx not in self.df.index:
                     continue
                 if self.df.loc[eval_idx]["final_source"] != self.df.loc[overlap_idx]["final_source"]:
@@ -292,7 +352,7 @@ class EcossDataset:
         idxs_to_drop = []
         for i, row in self.df.iterrows():
             for label in unwanted_labels:
-                if label in row["final_source"]:
+                if label.lower() == row["final_source"].lower():
                     idxs_to_drop.append(i)
 
         self.df = self.df.drop(idxs_to_drop)
@@ -317,7 +377,10 @@ class EcossDataset:
         """
         # Dropping rows that contain nan in label_source
         self.df = self.df.dropna(subset=['label_source'])
+        
 
+        if not labels:
+            labels = None
         if labels != None:
             for i, row in self.df.iterrows():
                 for label in labels:
@@ -329,9 +392,6 @@ class EcossDataset:
         # Once they are defined, we create the final column with the labels
         # Currently not saving, only overwritting the df parameter as this is the first step
         self.df["final_source"] = self.df["label_source"].apply(lambda x: x.split('|')[-1])
-
-
-
 
 
     def process_all_data(self) -> None:
@@ -353,25 +413,32 @@ class EcossDataset:
             logger.info(f"Files will be saved in {self.path_store_data}")
         else:
             logger.info(f"Files will not be saved in disk")
-
+        file = ""
         # Iterate over all signals, sr, paths, labels
         for _,row in tqdm(self.df.iterrows(), total=self.df.shape[0],desc='Processing Audios'):
             # Load audio file
-            signal, original_sr = sf.read(row["file"])
+            if file != row["file"]:
+                file  = row["file"]
+                original_signal, original_sr = sf.read(file)
+
             if "final_source" in row.index:
                 label = row["final_source"]
             else:
                 label = row["label_source"]
             split = row["split"]
             # Extract only the label segment
-            signal = signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
+            signal = original_signal[int(original_sr*row["tmin"]):int(original_sr*row["tmax"])]
+            logger.debug(f"{signal}")
+            if self.window:
+                signal = signal * get_window('hamming', len(signal))
+                logger.debug(f"Signal after the hamming window {signal}")
             # Process the signal
             segments = self.process_data(signal, original_sr)
             # Count how many times
-            if row["file"] in files_dict:
-                files_dict[row["file"]] += 1
+            if file in files_dict:
+                files_dict[file] += 1
             else:
-                files_dict[row["file"]] = 0
+                files_dict[file] = 0
 
             path = Path(row["split"]) / label / f"{Path(row['file']).stem}_{files_dict[row['file']]:03d}"
             if self.saving_on_disk:
@@ -432,6 +499,10 @@ class EcossDataset:
         # Extract each segment and append to the list
         for i in range(n_segments):
             segment = signal[(i*self.segment_length):((i+1)*self.segment_length)]
+            logger.debug(f"{segment}")
+            if self.window:
+                segment = segment * get_window('hamming', ((i+1)*self.segment_length) - (i*self.segment_length))
+                logger.debug(f"Segment after the hamming window {segment}")
             segments.append(segment)
         return segments
 
@@ -456,6 +527,8 @@ class EcossDataset:
            segment = self.zero_padding(signal, delta_start, delta_end)
         elif self.pad_mode == 'white_noise':
             segment = self.white_noise_padding(signal, delta_start, delta_end)
+        elif self.pad_mode == 'random':
+            segment = self.random_padding(signal)
         else:
             logger.error("Error : pad_mode not valid")
             exit(1)
@@ -501,7 +574,44 @@ class EcossDataset:
         segment = np.concatenate((white_noise_start, signal, white_noise_end))
 
         return segment
+    
+    def random_padding(self, signal: np.ndarray) -> np.ndarray:
+        """
+        Pad the signal with random white noise and repeat the signal randomly.
 
+        Parameters:
+        signal (np.array): Signal array.
+
+        Returns:
+        np.array: Randomly padded signal.
+        """
+        total_length = 0
+        segments = []
+        signal_length = len(signal)
+        signal_points = 0
+
+
+        while total_length < self.segment_length:
+            # Decide randomly whether to add white noise or signal
+            if random.choice([True, False]):
+                noise_length = random.randint(1, max(1,int(2 * (self.segment_length - total_length) / 3)))
+                # Add white noise at the beginning
+                white_noise = np.random.normal(loc=0, scale=np.std(signal) / 10, size=noise_length)
+                segments.append(white_noise)
+                total_length += noise_length
+            else:
+                segments.append(signal)
+                total_length += signal_length
+                if (total_length + signal_length) < self.segment_length:
+                    signal_points += signal_length
+                else:
+                    signal_points += self.segment_length - total_length
+        
+        final_segment = np.concatenate(segments)[:self.segment_length]
+        if signal_points <= signal_length:
+            final_segment[-len(signal):] = signal
+        
+        return final_segment
 
     def save_data(self, segments: list[np.ndarray], path: str) -> None:
         """
@@ -559,7 +669,8 @@ class EcossDataset:
         plt.bar(range(0, len(count_signatures)), count_signatures)
         plt.xticks(range(0, len(count_signatures)),
                    count_signatures.index.to_list(),
-                   horizontalalignment='center')
+                   horizontalalignment='center',
+                   rotation=45)
         plt.xlabel("Source")
         plt.ylabel("# of sound signatures")
         plt.show()
@@ -570,14 +681,16 @@ class EcossDataset:
         times = dict()
         for _, row in self.df.iterrows():
             if row["final_source"] not in times.keys():
-                times[row["final_source"]] = row["tmax"] - row["tmin"]
+                times[row["final_source"]] = float(row["tmax"]) - float(row["tmin"])
             else:
-                times[row["final_source"]] += row["tmax"] - row["tmin"]
+                times[row["final_source"]] += float(row["tmax"]) - float(row["tmin"])
+    
         plt.figure(figsize=(8,6))
         plt.bar(range(0, len(times)), times.values())
         plt.xticks(range(0, len(times)),
                    list(times.keys()),
-                   horizontalalignment='center')
+                   horizontalalignment='center',
+                   rotation=45)
         plt.xlabel("Source")
         plt.ylabel("Time (s)")
         plt.show()
@@ -590,7 +703,7 @@ class EcossDataset:
             df_test = self.df[self.df["split"] == "test"]
 
             # Number of sound signatures related
-            fig, ax = plt.subplots(ncols=2, figsize=(12,6))
+            _, ax = plt.subplots(ncols=2, figsize=(12,6))
             count_signatures_train = df_train["final_source"].value_counts()
             count_signatures_test = df_test["final_source"].value_counts()
             ax[0].bar(range(0, len(count_signatures_train)), count_signatures_train)
@@ -622,18 +735,18 @@ class EcossDataset:
             times_train = dict()
             times_test = dict()
 
-            for i, row in df_train.iterrows():
+            for _, row in df_train.iterrows():
                 if row["final_source"] not in times_train.keys():
-                    times_train[row["final_source"]] = row["tmax"] - row["tmin"]
+                    times_train[row["final_source"]] = float(row["tmax"]) - float(row["tmin"])
                 else:
-                    times_train[row["final_source"]] += row["tmax"] - row["tmin"]
-            for i, row in df_test.iterrows():
+                    times_train[row["final_source"]] += float(row["tmax"]) - float(row["tmin"])
+            for _, row in df_test.iterrows():
                 if row["final_source"] not in times_test.keys():
-                    times_test[row["final_source"]] = row["tmax"] - row["tmin"]
+                    times_test[row["final_source"]] = float(row["tmax"]) - float(row["tmin"])
                 else:
-                    times_test[row["final_source"]] += row["tmax"] - row["tmin"]
+                    times_test[row["final_source"]] += float(row["tmax"]) - float(row["tmin"])
 
-            fig, ax = plt.subplots(ncols=2, figsize=(12,6))
+            _, ax = plt.subplots(ncols=2, figsize=(12,6))
             ax[0].bar(range(0, len(times_train)), times_train.values())
             ax[1].bar(range(0, len(times_test)), times_test.values())
 
@@ -673,7 +786,7 @@ class EcossDataset:
             if pd.isna(row["overlapping"]):
                 overlap_info_processed.append([])
                 continue
-            overlap_info_processed.append(self._parse_overlapping_field(row["overlap_info"]))
+            overlap_info_processed.append(self._parse_overlapping_field(str(row["overlap_info"])))
         return overlap_info_processed
 
 
@@ -696,7 +809,7 @@ class EcossDataset:
             labels = []
 
             # Iterate through rows corresponding to the current parent file
-            for eval_idx, row in df[df["parent_file"] == file].iterrows():
+            for _, row in df[df["parent_file"] == file].iterrows():
                 segments.append([row['tmin'], row["tmax"]])
                 labels.append(row['final_source'])
 
@@ -805,6 +918,7 @@ class EcossDataset:
         Returns:
         list of lists: A list of [tmin, tmax] pairs representing the subevents.
         """
+        event = [float(x) for x in event]
         tmin, tmax = event
         subevents = []
         start = tmin
@@ -850,3 +964,43 @@ class EcossDataset:
         else:
             return False
 
+    def filter_amount(self, reducible_classes = None, target_count = None):
+        if reducible_classes and target_count:
+            duration = []
+            dataset = []
+            for _, row in self.df.iterrows():
+                duration.append(float(row["tmax"]) - float(row["tmin"]))
+                dataset.append(os.path.dirname(row['file']))
+            self.df['duration'] = duration
+            self.df['dataset'] = dataset
+
+            for i, cl in enumerate(reducible_classes):
+                just_cl = self.df[self.df['final_source'] == cl]
+
+                index_to_keep = []
+                just_cl_grouped = just_cl.groupby('dataset')
+                cond = True
+                while target_count[i] > 0 and cond:
+                    cond = False
+                    if len(just_cl_grouped)>1:
+                        for name, df_group in just_cl_grouped:
+
+                            ind = random.randint(0, len(df_group)-1)
+
+                            if df_group.iloc[ind]['duration'] > 200: continue
+                            if df_group.index[ind] in index_to_keep: continue
+
+                            index_to_keep.append(df_group.index[ind])
+                            target_count[i] -= df_group.iloc[ind]['duration'] 
+                            cond = True
+                    else:
+                        while target_count[i] > 0:
+                            ind = random.randint(0, len(just_cl)-1)
+                            if just_cl.iloc[ind]['duration'] > 200: continue
+                            if just_cl.index[ind] in index_to_keep: continue
+
+                            index_to_keep.append(just_cl.index[ind])
+                            target_count[i] -= just_cl.iloc[ind]['duration'] 
+                            cond = True
+
+                self.df = self.df.drop(self.df.index[((self.df['final_source'] == cl)* ~self.df.index.isin(index_to_keep))])

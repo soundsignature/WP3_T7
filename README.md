@@ -46,15 +46,28 @@ EXP_NAME = # desired name of the folder to store the results
 NEW_ONTOLOGY = 'Ship,Biological,...' # Top level to group labels
 UNWANTED_LABELS = 'Tursiops,SpermWhale,...' # Labels to drop
 TEST_SIZE = # Size of the test set in decimal format (e.g. 0.3)
+MIN_DURATION = # The amount of seconds that each signal should atleast have to be preserved on the dataset
+CLASSES_FILTER_TIME # A set of classes to apply this min_duration filter. Should be formatted like this: 'Delphinids,Tursiops'. If we want to apply the filter to all our classes simply use an empy string (CLASSES_FILTER_TIME = '')
+DESIRED_MARGIN = # The amount of frequencial content of the signal needed in order to keep it. (e.g 0.2 (20%))
+REDUCIBLE_CLASSES = # The classes of the ontology whose number of samples needs to be reduced (e.g 'Ship,Biological'). If you dont want to reduce simply keep this as an empty string
+TARGET_COUNT = # Number of samples that we want to keep for each of the reducible_classes (e.g '2000,1800'). If you dont want to reduce simply keep this as an empty string
 
 # Train parameters
 ANNOTATIONS_PATHS= 'path/to/data1,path/to/data1,...'
 YAML_PATH = path/to/yaml/config/file
 MODEL_TYPE = # effat passt or vggish
+PATH_STORE_DATA = data/ # Desired path to save processed data
+PAD_MODE = # zeros, random or white_noise
+OVERWRITE_DATA = # True or False. If PATH_STORE_DATA already exists and OVERWRITE_DATA = False, it doesn't process the data, just load the data from the path defined.
 
 # Inference / Test parameters
-INFERENCE_DATA_PATH = path/to/file/to/predict
+INFERENCE_DATA_PATH = path/to/file/to/predict  # Can also the path to a folder with more than one audio, inference will be performed in all the audios in the folder. Only audios should be inside that folder.
 PATH_MODEL_TEST = path/to/trained/model/weights
+
+# Check labels
+DATASET_PATH_CHECK = path/to/dataset/to/analyze
+YAML_LABELS_CHECK = path/to/specific/yaml
+STORE_PATH_CHECK = path/where/the/labels/are/stored
 
 ```
 --------------------------------------------------------------
@@ -84,3 +97,17 @@ Two ways:
 ## VGGISH POETRY
 If you use linux, then you dont need the package tensorflow-intel because it will raise an error. Install everything like this: "poetry install --without intel".
 If you use windows, then you will need the package tensorflow-intel because otherwise you will experience errors. Install everything like this: "poetry install --with intel".
+
+
+## COMPILE MODELS
+It is possible to compile the Effat and Passt models before using them for optimization. To do this, simply set the ```compile``` parameter to
+```True``` in the .yaml configuration file. Please note that this feature requires a Linux environment. If you are using Windows, you can utilize the Windows Subsystem for Linux (WSL).
+### Install WSL
+To install WSL, follow the instructions provided at [Microsoft's official documentation](https://learn.microsoft.com/en-us/windows/wsl/install). Once WSL is installed, proceed with the steps below to install this repository in a Linux environment. This process has been tested on Ubuntu 22.04.
+
+Windows by default limits the RAM capacity of WSL to 50% of the RAM of the machine. You'll need to add a memory=48GB (or your preferred setting) to a .wslconfig file that is placed in your Windows home directory ```(\Users\{username}\)```.
+
+```
+[wsl2]
+memory=48GB
+```

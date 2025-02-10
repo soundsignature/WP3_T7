@@ -1,4 +1,6 @@
 {
+  desired_sr: 32000,
+  window: True,
   grid_search_params: {
     "C": [1,1.5,2,2.5],
     "kernel": [

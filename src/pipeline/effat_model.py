@@ -26,8 +26,9 @@ from glob import glob
 import seaborn as sns
 import pandas as pd
 from typing import Tuple, Dict, Union
+import librosa
 
-from .utils import AugmentMelSTFT, EffATWrapper, process_audio_for_inference
+from .utils import AugmentMelSTFT, EffATWrapper, process_audio_for_inference, LibrosaSpec,save_confusion_matrix
 from models.effat_repo.models.mn.model import get_model as get_mn
 from models.effat_repo.models.dymn.model import get_model as get_dymn
 
@@ -63,7 +64,7 @@ class HelperDataset(Dataset):
         self.duration = duration
         self.mel = mel
         self.classes = os.listdir(self.path_data)
-        data = []
+        data, labels = [], []
 
         if not label_to_idx:
             self.label_to_idx = {cls: i for i, cls in enumerate(self.classes)}
@@ -74,8 +75,10 @@ class HelperDataset(Dataset):
             files = [os.path.join(self.path_data, cls, file) for file in os.listdir(os.path.join(self.path_data, cls))]
             for file in files:
                 data.append((file, self.label_to_idx[cls]))
-
+                labels.append(self.label_to_idx[cls])
+        
         self.data = data
+        self.labels = labels
 
 
     def __len__(self):
@@ -99,20 +102,31 @@ class EffAtModel():
         """
         self.yaml = yaml_content
         self.data_path = data_path
-        self.mel = AugmentMelSTFT(freqm=self.yaml["freqm"],
-                                  timem=self.yaml["freqm"],
-                                  n_mels=self.yaml["n_mels"],
-                                  sr=self.yaml["sr"],
-                                  win_length=self.yaml["win_length"],
-                                  hopsize=self.yaml["hopsize"],
-                                  n_fft=self.yaml["n_fft"],
-                                  fmin=self.yaml["fmin"],
-                                  fmax=self.yaml["fmax"],
-                                  fmax_aug_range=self.yaml["fmax_aug_range"],
-                                  fmin_aug_range=self.yaml["fmin_aug_range"])
+
+        if self.yaml["augmentmel"]:
+            self.mel = AugmentMelSTFT(freqm=self.yaml["freqm"],
+                                    timem=self.yaml["freqm"],
+                                    n_mels=self.yaml["n_mels"],
+                                    sr=self.yaml["sr"],
+                                    win_length=self.yaml["win_length"],
+                                    hopsize=self.yaml["hopsize"],
+                                    n_fft=self.yaml["n_fft"],
+                                    fmin=self.yaml["fmin"],
+                                    fmax=self.yaml["fmax"],
+                                    fmax_aug_range=self.yaml["fmax_aug_range"],
+                                    fmin_aug_range=self.yaml["fmin_aug_range"])
+        else:
+            self.mel = LibrosaSpec(mel=self.yaml["melspec"],
+                                   sr=self.yaml["sr"],
+                                   win_length=self.yaml["win_length"],
+                                   hopsize=self.yaml["hopsize"],
+                                   n_fft=self.yaml["n_fft"],
+                                   n_mels=self.yaml["n_mels"])
+
         self.name_model = self.yaml["model_name"]
         self.num_classes = num_classes
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"The device used for training is {self.device}")
 
         if "dy" not in self.name_model:
             model = get_mn(pretrained_name=self.name_model)
@@ -122,6 +136,9 @@ class EffAtModel():
         # Using the wrapper to modify the last layer and moving to device
         model = EffATWrapper(num_classes=num_classes, model=model, freeze=self.yaml["freeze"])
         model.to(self.device)
+        if self.yaml["compile"]:
+            model = torch.compile(model,mode = "reduce-overhead")
+        
         self.model = model
 
 
@@ -138,23 +155,32 @@ class EffAtModel():
                                       duration=self.yaml["duration"], mel=self.mel,
                                       train=True,
                                       label_to_idx=None)
+        logger.debug("Training dataset obtained")
+
         dataset_test = HelperDataset(path_data = self.data_path, sr=self.yaml["sr"],
                                      duration=self.yaml["duration"], mel=self.mel,
                                      train=False,
-                                     label_to_idx=None)
+                                     label_to_idx=dataset_train.label_to_idx)
+        logger.debug("Testing dataset obtained")
 
         # Create the WeightedRandomSampler for unbalanced datasets
-        train_labels = [label for _, label, _ in dataset_train]
+        train_labels = dataset_train.labels
+        logger.debug("Training labels obtained")
         class_counts = np.bincount(train_labels)
+        logger.debug("Class counts obtained")
         class_weights = 1. / class_counts
         samples_weights = class_weights[train_labels]
         samples_weights = torch.FloatTensor(samples_weights)
         class_weights = torch.FloatTensor(class_weights).to(self.device)
 
+        logger.debug("Everything set for the WeightedRandomSampler")
+
         train_sampler = WeightedRandomSampler(weights=samples_weights, num_samples=len(samples_weights), replacement=True)
+        logger.debug("WRS obtained")
 
         train_dataloader = DataLoader(dataset=dataset_train, sampler=train_sampler, batch_size=self.yaml["batch_size"])
         test_dataloader = DataLoader(dataset=dataset_test, batch_size=self.yaml["batch_size"])  # Not doing weighted samples for testing
+        logger.debug("DLs obtained")
 
         return train_dataloader, test_dataloader, dataset_train.label_to_idx
 
@@ -176,13 +202,14 @@ class EffAtModel():
 
         # Begin the training
         self.model.train()
+        logging.info("Model set to train mode")
         if self.yaml["optimizer"].lower() == "adam":
             optimizer = optim.Adam(self.model.parameters(), lr=self.yaml["lr"])
         else:
             optimizer = optim.SGD(self.model.parameters(), lr=self.yaml["lr"])
 
         criterion = nn.CrossEntropyLoss()
-
+        logging.info("Criterion and optimizer selected")
         best_accuracy = 0.0
         epochs_without_improvement = 0
 
@@ -190,7 +217,7 @@ class EffAtModel():
         train_losses, test_losses = [], []
 
         train_dataloader, test_dataloader, label_encoder = self.load_aux_datasets()
-
+        logging.info("Dataloaders obtained")
         for i in tqdm(range(self.yaml["n_epochs"]), desc="Epoch"):
             self.model.train()
             running_loss = 0.0
@@ -226,7 +253,7 @@ class EffAtModel():
 
             epoch_loss = running_loss / batch_count
             train_accuracy = 100 * correct / total
-            train_f1 = f1_score(all_labels, all_preds, average='weighted')
+            train_f1 = f1_score(all_labels, all_preds, average='macro')
 
             # Evaluation
             self.model.eval()
@@ -249,6 +276,7 @@ class EffAtModel():
 
                     _, predicted = torch.max(outputs, 1)
                     total += labels.size(0)
+
                     correct += (predicted == labels).sum().item()
                     all_preds.extend(predicted.cpu().numpy())
                     all_labels.extend(labels.cpu().numpy())
@@ -256,7 +284,7 @@ class EffAtModel():
 
             avg_test_loss = test_loss / batch_count
             test_accuracy = 100 * correct / total
-            test_f1 = f1_score(all_labels, all_preds, average='weighted')
+            test_f1 = f1_score(all_labels, all_preds, average='macro')
 
             train_losses.append(epoch_loss)
             test_losses.append(avg_test_loss)
@@ -275,6 +303,8 @@ class EffAtModel():
 
                 # Saving weights, results and curves
                 self.plot_results(train_losses, test_losses, train_accs, test_accs)
+                ordered_labels = [k for k, v in sorted(label_encoder.items(), key=lambda item: item[1])]
+                save_confusion_matrix(unique_labels=ordered_labels,exp_folder=self.results_folder,true_labels=all_labels,predicted_labels=all_preds,title="cm")
                 self.plot_cm(cm)
                 self.save_weights(optimizer)
                 metrics = {"train_acc": train_accuracy,
@@ -306,7 +336,13 @@ class EffAtModel():
 
         # Load the weights
         checkpoint = torch.load(path_model)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
+        model_state_dict = checkpoint['model_state_dict']
+        if not self.yaml["compile"]:
+            remove_prefix = '_orig_mod.'
+            model_state_dict = {k[len(remove_prefix):] if k.startswith(
+                    remove_prefix) else k: v for k, v in model_state_dict.items()}
+        self.model.load_state_dict(model_state_dict)
+        
         self.model.eval()
         self.mel.eval()
         logger.info(f"Weights succesfully loaded into the model")
@@ -343,13 +379,14 @@ class EffAtModel():
                 all_labels.extend(labels.cpu().numpy())
 
         test_accuracy = 100 * correct / total
-        test_f1 = f1_score(all_labels, all_preds, average='weighted')
+        test_f1 = f1_score(all_labels, all_preds, average='macro')
 
         metrics = {"test_acc": test_accuracy,
                    "test_f1": test_f1}
 
         self.save_results(class_map, metrics)
         cm = confusion_matrix(all_labels, all_preds)
+        
         self.plot_cm(cm)
 
 
@@ -365,7 +402,13 @@ class EffAtModel():
         # Load the model
         checkpoint = torch.load(path_model)
         # Load the state dicts into the model
-        self.model.load_state_dict(checkpoint['model_state_dict'])
+        model_state_dict = checkpoint['model_state_dict']
+        if not self.yaml["compile"]:
+            remove_prefix = '_orig_mod.'
+            model_state_dict = {k[len(remove_prefix):] if k.startswith(
+                    remove_prefix) else k: v for k, v in model_state_dict.items()}
+        self.model.load_state_dict(model_state_dict)
+        
         self.model.eval()
         self.mel.eval()
         # Obtain the class mapping
@@ -374,27 +417,56 @@ class EffAtModel():
             class_map = json.load(f)
         inverse_class_map = {v: k for k, v in class_map.items()}
 
-        outs, embs = [], []
-        preds = {}
-        with torch.no_grad():
-            y, _ = process_audio_for_inference(path_audio=path_data,
-                                                desired_sr=self.yaml["sr"],
-                                                desired_duration=self.yaml["duration"])
+        if os.path.isfile(path_data):
+            outs, embs = [], []
+            preds = {}
+            with torch.no_grad():
+                y, _ = process_audio_for_inference(path_audio=path_data,
+                                                    desired_sr=self.yaml["sr"],
+                                                    desired_duration=self.yaml["duration"])
+            
+                for i in tqdm(range(y.shape[1])):
+                    output, embeddings = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))  # Saving embeddings but not necessary
+                    outs.append(output)
+                    softmax = nn.Softmax(dim=1)
+                    percentages = softmax(output)
+                    predictions = torch.argmax(percentages).item()
+                    preds[f"chunk_{i}"] = {
+                        'Predicted Class': inverse_class_map[predictions],
+                        'Confidence per class': {k: float(percentages.cpu().numpy()[0, idx]) for idx, k in enumerate(class_map.keys())}
+                    }
+                    embs.append(embeddings)
 
-            for i in tqdm(range(y.shape[1])):
-                output, embeddings = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))  # Saving embeddings but not necessary
-                outs.append(output)
-                softmax = nn.Softmax(dim=1)
-                percentages = softmax(output)
-                predictions = torch.argmax(percentages).item()
-                preds[f"chunk_{i}"] = {
-                    'Predicted Class': inverse_class_map[predictions],
-                    'Confidence per class': {k: float(percentages.cpu().numpy()[0, idx]) for idx, k in enumerate(class_map.keys())}
-                }
-                embs.append(embeddings)
+            with open(self.results_folder / 'predictions.json', "w") as f:
+                json.dump(preds, f)
+        
 
-        with open(self.results_folder / 'predictions.json', "w") as f:
-            json.dump(preds, f)
+        elif os.path.isdir(path_data):
+            all_files = [os.path.join(path_data, file) for file in os.listdir(path_data)]
+            with torch.no_grad():
+                for file in all_files:
+                    outs = []
+                    preds = {}
+                    y, _ = process_audio_for_inference(path_audio=file,
+                                                       desired_sr=self.yaml["sr"],
+                                                       desired_duration=self.yaml["duration"])
+            
+                    for i in tqdm(range(y.shape[1])):
+                        output, _ = self.model(self.mel(y[:, i]).unsqueeze(0).to(self.device))
+                        outs.append(output)
+                        softmax = nn.Softmax(dim=1)
+                        percentages = softmax(output)
+                        predictions = torch.argmax(percentages).item()
+                        preds[f"chunk_{i}"] = {
+                            'Predicted Class': inverse_class_map[predictions],
+                            'Confidence per class': {k: float(percentages.cpu().numpy()[0, idx]) for idx, k in enumerate(class_map.keys())}
+                        }
+
+                        with open(self.results_folder / f'predictions_{os.path.splitext(os.path.basename(file))[0]}.json', "w") as f:
+                            json.dump(preds, f)
+
+
+
 
 
     def plot_results(self, train_loss: list, test_loss: list, train_acc: list, test_acc: list) -> None:
@@ -477,20 +549,57 @@ class EffAtModel():
         if augment == False:
             self.mel.eval()
 
-        for av_class in available_classes:
-            path_wavs = os.path.join(path_classes, av_class)
-            wav_to_plot = os.path.join(path_wavs,
-                                       np.random.choice(os.listdir(path_wavs)))
-            logger.info(f"The file that will be plotted is {wav_to_plot}")
+        if self.yaml["augmentmel"]:
+            for av_class in available_classes:
+                path_wavs = os.path.join(path_classes, av_class)
+                wav_to_plot = os.path.join(path_wavs,
+                                        np.random.choice(os.listdir(path_wavs)))
+                logger.info(f"The file that will be plotted is {wav_to_plot}")
 
-            y, sr = torchaudio.load(wav_to_plot)
-            melspec = self.mel(y)
-            logger.info(f"The shape of the melspec is {melspec.shape}")
+                y, _ = torchaudio.load(wav_to_plot)
+                melspec = self.mel(y)
+                logger.info(f"The shape of the melspec is {melspec.shape}")
 
-            plt.figure()
-            plt.imshow(melspec[0], origin="lower")
-            plt.title(av_class)
-            plt.show()
+                plt.figure()
+                plt.imshow(melspec[0], origin="lower")
+                plt.title(av_class)
+                plt.show()
+        
+        if not self.yaml["augmentmel"] and self.yaml["melspec"]:
+            for av_class in available_classes:
+                path_wavs = os.path.join(path_classes, av_class)
+                wav_to_plot = os.path.join(path_wavs,
+                                        np.random.choice(os.listdir(path_wavs)))
+                logger.info(f"The file that will be plotted is {wav_to_plot}")
+
+                y, _ = torchaudio.load(wav_to_plot)
+                melspec = self.mel(y)
+                logger.info(f"The shape of the melspec is {melspec.shape}")
+
+                plt.figure(figsize=(10, 4))
+                librosa.display.specshow(melspec.cpu().numpy()[0], x_axis='time', y_axis='mel', sr=self.yaml["sr"], cmap='Greys', hop_length=self.yaml["hopsize"])
+                plt.title(av_class)
+                plt.show()
+                
+        
+        elif not self.yaml["augmentmel"] and not self.yaml["melspec"]:
+            for av_class in available_classes:
+                path_wavs = os.path.join(path_classes, av_class)
+                wav_to_plot = os.path.join(path_wavs,
+                                        np.random.choice(os.listdir(path_wavs)))
+                logger.info(f"The file that will be plotted is {wav_to_plot}")
+
+                y, sr = torchaudio.load(wav_to_plot)
+                melspec = self.mel(y)
+                logger.info(f"The shape of the melspec is {melspec.shape}")
+                logger.info(f"The sampling rate is {sr}")
+                logger.info(f"The sampling rate in yaml is {self.yaml['sr']}")
+
+                plt.figure(figsize=(10, 4))
+
+                librosa.display.specshow(melspec.cpu().numpy()[0], x_axis='time', y_axis='linear', sr=self.yaml["sr"], cmap='Greys', hop_length=self.yaml["hopsize"])
+                plt.title(av_class)
+                plt.show()
 
 
 

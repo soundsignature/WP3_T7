@@ -34,10 +34,15 @@ from torch.optim.lr_scheduler import OneCycleLR
 from torch.utils.data import Dataset
 import torchaudio
 
+import sys
+PROJECT_FOLDER = os.path.dirname(__file__).replace('/pipeline', '/models')
+PARENT_PROJECT_FOLDER = os.path.dirname(PROJECT_FOLDER)
+sys.path.append(PARENT_PROJECT_FOLDER)
+
 from models.passt.base import get_model
 from models.passt.preprocess import AugmentMelSTFT
 from models.passt.wrapper import PasstBasicWrapper
-from pipeline.utils import save_training_curves, save_confusion_matrix, process_audio_for_inference
+from pipeline.utils import save_training_curves, save_confusion_matrix, process_audio_for_inference, LibrosaSpec
 
 class HelperDataset(Dataset):
     """
@@ -63,16 +68,19 @@ class HelperDataset(Dataset):
         self.root_dir = Path(root_dir)
         self.sr = sr
         self.duration = duration
-        self.labels = [item.name for item in self.root_dir.glob('*') if item.is_dir()]
+        self.unique_labels = [item.name for item in self.root_dir.glob('*') if item.is_dir()]
         if not label_to_idx:
-            self.label_to_idx = {label: idx for idx, label in enumerate(self.labels)}
+            self.label_to_idx = {label: idx for idx, label in enumerate(self.unique_labels)}
         else:
             self.label_to_idx = label_to_idx
         self.data = []
-        for label in self.labels:
+        labels = []
+        for label in self.unique_labels:
             for audio_file in self.root_dir.joinpath(label).rglob('*.wav'):
                 self.data.append((audio_file, self.label_to_idx[label]))
-
+                labels.append(self.label_to_idx[label])
+        
+        self.labels = labels
         self.resamplers = [(None,None)]
 
     def __len__(self):
@@ -141,8 +149,6 @@ class PasstModel():
 
         train_dataloader, test_dataloader = self.load_train_test_datasets()
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         model = self.train_model(model,train_dataloader,test_dataloader,results_folder)
 
         self.test_model(model,train_dataloader,results_folder,title = "train_result")
@@ -165,12 +171,10 @@ class PasstModel():
             class_dict = json.load(f)
         self.n_classes = len(class_dict)
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         model.eval()
         logging.info("Weights succesfully loaded into the model")
         test_dataloader = DataLoader(HelperDataset(self.data_path / "train",duration = self.opt.duration,sr=self.opt.sr))
-        self.unique_labels = test_dataloader.dataset.labels
+        self.unique_labels = test_dataloader.dataset.unique_labels
         self.test_model(model,test_dataloader,results_folder,title = "test_result")
 
     def inference(self,results_folder, path_model, path_data):
@@ -183,50 +187,85 @@ class PasstModel():
             path_data (str): Path to the dataset.
         """
         logging.info("Infering with PASST")
-        results_folder = Path(results_folder)
+        self.results_folder = Path(results_folder)
         path_model = Path(path_model)
         self.opt.weights_path = path_model
+
         with open(str(path_model.parent / "class_dict.json"),"r",encoding="utf-8") as f:
             class_dict = json.load(f)
         self.n_classes = len(class_dict)
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         model.eval()
         logging.info("Weights succesfully loaded into the model")
 
-        y_list, sr = process_audio_for_inference(path_audio=self.data_path,
-                            desired_sr=self.yaml["sr"],
-                            desired_duration=self.yaml["duration"])
+        if self.data_path.is_file():
+            y_list, sr = process_audio_for_inference(path_audio=self.data_path,
+                                desired_sr=self.yaml["sr"],
+                                desired_duration=self.yaml["duration"])
 
-        assert sr == self.yaml["sr"], "inconsistent sampling rate"
-        class_list =  [key for key, value in sorted(class_dict.items(), key=lambda item: item[1])]
-        results = []
+            assert sr == self.yaml["sr"], "inconsistent sampling rate"
+            class_list =  [key for key, value in sorted(class_dict.items(), key=lambda item: item[1])]
+            results = []
 
-        with torch.no_grad():
-            for audio_wave in tqdm(y_list, desc="predict:"):
-                if audio_wave.shape[1] == 0:
-                    continue
-                start = time.time()
-                if self.opt.gpu:
-                    audio_wave = audio_wave.cuda()
-                    target = target.cuda()
-                logits = model(audio_wave)
-                precentage = torch.nn.Softmax(dim=1)(logits)
-                _, predicted = torch.max(logits.data, 1)
-                inferece_time = time.time()- start
+            with torch.no_grad():
+                for audio_wave in tqdm(y_list, desc="predict:"):
+                    if audio_wave.shape[1] == 0:
+                        continue
+                    start = time.time()
+                    if self.opt.gpu:
+                        audio_wave = audio_wave.cuda()
+                    logits = model(audio_wave)
+                    precentage = torch.nn.Softmax(dim=1)(logits)
+                    _, predicted = torch.max(logits.data, 1)
+                    inferece_time = time.time()- start
 
-                for i in range(len(predicted.cpu().numpy())):
-                    confidence_by_class = dict(zip(class_list,precentage.cpu().numpy()[i]))
-                    results.append({"Predicted Class" : class_list[predicted.cpu().numpy()[i]],
-                                    "Confidence by class" : confidence_by_class,
-                                    "Inference time" : inferece_time
-                                    }
-                        )
+                    for i in range(len(predicted.cpu().numpy())):
+                        confidence_by_class = dict(zip(class_list,precentage.cpu().numpy()[i]))
+                        results.append({"Predicted Class" : class_list[predicted.cpu().numpy()[i]],
+                                        "Confidence by class" : confidence_by_class,
+                                        "Inference time" : inferece_time
+                                        }
+                            )
 
-        logging.info(results)
-        with open(str(Path(results_folder) / "results.json"), "w", encoding="utf-8") as f:
-            json.dump(results, f, default=str)
+            logging.info(results)
+            with open(str(Path(results_folder) / "predictions.json"), "w", encoding="utf-8") as f:
+                json.dump(results, f, default=str)
+        
+        elif self.data_path.is_dir():
+            audios = [os.path.join(self.data_path, audio) for audio in os.listdir(self.data_path)]
+            
+            for audio in audios:
+                y_list, sr = process_audio_for_inference(path_audio=audio,
+                                    desired_sr=self.yaml["sr"],
+                                    desired_duration=self.yaml["duration"])
+
+                assert sr == self.yaml["sr"], "inconsistent sampling rate"
+                class_list =  [key for key, value in sorted(class_dict.items(), key=lambda item: item[1])]
+                results = []
+
+                with torch.no_grad():
+                    for audio_wave in tqdm(y_list, desc="predict:"):
+                        if audio_wave.shape[1] == 0:
+                            continue
+                        start = time.time()
+                        if self.opt.gpu:
+                            audio_wave = audio_wave.cuda()
+                        logits = model(audio_wave)
+                        precentage = torch.nn.Softmax(dim=1)(logits)
+                        _, predicted = torch.max(logits.data, 1)
+                        inferece_time = time.time()- start
+
+                        for i in range(len(predicted.cpu().numpy())):
+                            confidence_by_class = dict(zip(class_list,precentage.cpu().numpy()[i]))
+                            results.append({"Predicted Class" : class_list[predicted.cpu().numpy()[i]],
+                                            "Confidence by class" : confidence_by_class,
+                                            "Inference time" : inferece_time
+                                            }
+                                )
+
+                logging.info(results)
+                with open(str(Path(results_folder) / f'predictions_{os.path.splitext(os.path.basename(audio))[0]}.json'), "w", encoding="utf-8") as f:
+                    json.dump(results, f, default=str)
 
 
     def test_model(self, model, dataloader, results_folder, title=""):
@@ -319,9 +358,8 @@ class PasstModel():
             dataset = HelperDataset(self.data_path / "train",duration = self.opt.duration,sr=self.opt.sr)
             test_dataset = HelperDataset(self.data_path / "test",label_to_idx = dataset.label_to_idx,duration=self.opt.duration,sr=self.opt.sr)
 
-        unique_labels = dataset.labels
+        unique_labels = dataset.unique_labels
         n_classes = len(unique_labels)
-
 
         # Create weighted samples to balance classes
         train_sampler = self.balance_dataset(dataset)
@@ -344,7 +382,8 @@ class PasstModel():
         Returns:
             tuple: A tuple containing the list of weights for each sample and the WeightedRandomSampler.
         """
-        targets = [target for _, target, _ in dataset]
+        # targets = [target for _, target, _ in dataset]
+        targets = dataset.labels
 
         # Create weighted samples to balance classes
         class_count = [i for i in np.bincount(targets)]
@@ -375,11 +414,8 @@ class PasstModel():
         --------
         None
         """
-
         train_dataloader, test_dataloader = self.load_train_test_datasets()
         model = self.create_model()
-        if self.opt.gpu:
-            model = model.cuda()
         for dataset in [train_dataloader,test_dataloader]:
             dataset = dataset.dataset
             mel = model.mel
@@ -422,7 +458,7 @@ class PasstModel():
         torch.nn.Module: Created model.
 
         """
-        if self.opt.preprocess_type == "mel":
+        if self.opt.preprocess_type == "augmentmel":
             mel = AugmentMelSTFT(n_mels=self.opt.n_mels,
                     sr=self.opt.sr,
                     win_length=self.opt.win_length,
@@ -435,10 +471,25 @@ class PasstModel():
                     fmax=self.opt.fmax,
                     norm=self.opt.norm,
                     fmin_aug_range=self.opt.fmin_aug_range,
-                    fmax_aug_range=self.opt.fmax_aug_range
+                    fmax_aug_range=self.opt.fmax_aug_range,
+                    compiled_model=self.opt.compile
                     )
+        elif self.opt.preprocess_type == "mel":
+            mel = LibrosaSpec(mel=True,
+                              n_fft=self.opt.n_fft,
+                              win_length=self.opt.win_length,
+                              hopsize=self.opt.hopsize,
+                              n_mels=self.opt.n_mels)
+        
+        elif self.opt.preprocess_type == "normal":
+            mel = LibrosaSpec(mel=False,
+                              n_fft=self.opt.n_fft,
+                              win_length=self.opt.win_length,
+                              hopsize=self.opt.hopsize,
+)
+
         else:
-            raise ValueError("preprocess_type should be 'mel'")
+            raise ValueError("preprocess_type should be 'augmentmel', 'mel' or 'normal'")
 
 
         # Define the transformer
@@ -459,17 +510,26 @@ class PasstModel():
 
 
         if self.opt.weights_path:
-            # load the custom weights model state dict
+        # load the custom weights model state dict
             state_dict = torch.load(self.opt.weights_path)
-
+            # state_dict['model_state_dict']
+            remove_prefix = '_orig_mod.'
+            state_dict = {k[len(remove_prefix):] if k.startswith(
+                remove_prefix) else k: v for k, v in state_dict.items()}
             # I had to add this because apparently toch.save is adding somo prefix to configurations
             remove_prefix = 'net.'
             state_dict = {k[len(remove_prefix):] if k.startswith(
                 remove_prefix) else k: v for k, v in state_dict.items()}
-            state_dict. pop('device_proxy', None)
+            state_dict.pop('device_proxy', None)
 
             # load the weights into the transformer
-            model.net.load_state_dict(state_dict)
+            model.net.load_state_dict(state_dict,strict=True)
+
+        if self.opt.gpu:
+            model = model.cuda()
+
+        if self.opt.compile:
+            model = torch.compile(model=model,mode='max-autotune')
         return model
 
     def train_model(self,model,train_dataloader,test_dataloader,results_folder):
@@ -550,6 +610,7 @@ class PasstModel():
                 if scheduler:
                     scheduler.step()
 
+
             train_loss /= len(train_dataloader)
             train_losses.append(train_loss)
             logging.info(f"Epoch {epoch + 1} completed, Train Loss: {train_loss}")
@@ -564,7 +625,8 @@ class PasstModel():
                 best_val_loss = val_loss
                 early_stopping_counter = 0
                 best_model_state_dict = deepcopy(model.state_dict())
-                torch.save(best_model_state_dict, os.path.join(results_folder, f'checkpoint_{epoch + 1}.pth'))
+                if self.opt.save_checkpoints:
+                    torch.save(best_model_state_dict, os.path.join(results_folder, f'checkpoint_{epoch + 1}.pth'))
             else:
                 early_stopping_counter += 1
                 if early_stopping_counter >= self.opt.patience:

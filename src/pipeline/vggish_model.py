@@ -31,9 +31,9 @@ logger.addHandler(handler)
 
 
 class VggishModel():
-    def __init__(self, yaml_content: dict, signals: list = None, labels:list = None, split_info:list = None, sample_rate:float = None, data_path: str = None) -> None:
+    def __init__(self, yaml_content: dict, signals: list = None, labels:list = None, split_info:list = None, data_path: str = None) -> None:
         self.yaml = yaml_content
-        self.sample_rate=sample_rate
+        self.sample_rate=self.yaml.get('desired_sr')
         self.signals = signals
         self.labels = labels
         self.split_info = split_info
@@ -100,23 +100,29 @@ class VggishModel():
         self.plot_results(set = 'test', saving_folder = results_folder, y_true = Y, y_pred = Y_pred)
         
 
-    def inference(self,path_data,results_folder):
-        sr = self.yaml.get('desired_sr')
+    def inference(self,path_data,results_folder,path_model=None):
         duration = self.yaml.get('desired_duration')
-        X = process_data_for_inference(path_audio= path_data, desired_sr=sr, desired_duration=duration)
+        segments = process_data_for_inference(path_audio= path_data, desired_sr=self.sample_rate, desired_duration=duration)
+        X = []
+        for segment in tqdm(segments, total = len(segments), desc = "Features extraction"):
+            X.append(self.get_features(segment))
         if self.yaml.get('model_path'):
             self.model = joblib.load(self.yaml.get('model_path'))
         else:
             logger.error('Error. model_path missing in the yaml configuration file')
             exit()
-        predictions = []
+        predictions = {}
+        predictions["class by time interval"] = {}
+        s = 0
         for x in X:
+            x = x.reshape(1,-1)
             y = self.model.predict(x)
             labels_mapping_path = self.yaml.get('labels_mapping_path')
             with open(labels_mapping_path, 'r') as file:
                 label_mapping = json.load(file)
                 y= np.array([label_mapping[str(label)] for label in y])
-                predictions.append(y)
+                predictions["class by time interval"][f'\n{s}-{s+1}'] = y[0]
+                s+=1
         with open(os.path.join(results_folder, 'predictions.json'), "w") as f:
             json.dump(predictions, f)
 
@@ -243,7 +249,7 @@ class VggishModel():
             for label in unique_data_labels:
                 audio_files = os.listdir(os.path.join(data_path, split, label))
                 for audio in audio_files:
-                    signal, sr = sf.read(audio)
+                    signal, sr = sf.read(os.path.join(data_path, split, label,audio))
                     x_data.append(signal)
                     y_data.append(label)
                     
