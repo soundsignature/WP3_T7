@@ -48,6 +48,9 @@ UNWANTED_LABELS = 'Tursiops,SpermWhale,...' # Labels to drop
 TEST_SIZE = # Size of the test set in decimal format (e.g. 0.3)
 MIN_DURATION = # The amount of seconds that each signal should atleast have to be preserved on the dataset
 CLASSES_FILTER_TIME # A set of classes to apply this min_duration filter. Should be formatted like this: 'Delphinids,Tursiops'. If we want to apply the filter to all our classes simply use an empy string (CLASSES_FILTER_TIME = '')
+DESIRED_MARGIN = # The amount of frequencial content of the signal needed in order to keep it. (e.g 0.2 (20%))
+REDUCIBLE_CLASSES = # The classes of the ontology whose number of samples needs to be reduced (e.g 'Ship,Biological'). If you dont want to reduce simply keep this as an empty string
+TARGET_COUNT = # Number of samples that we want to keep for each of the reducible_classes (e.g '2000,1800'). If you dont want to reduce simply keep this as an empty string
 
 # Train parameters
 ANNOTATIONS_PATHS= 'path/to/data1,path/to/data1,...'
