@@ -52,13 +52,14 @@ def main():
         REDUCIBLE_CLASSES = None
         TARGET_COUNT = None
 
-    sr =32000
     ecoss_list = []
     yaml_content = load_yaml(YAML_PATH)
     if MODEL_TYPE.lower() == "vggish":
         duration = 1
+        sr = yaml_content["desired_sr"]
     else:
         duration = yaml_content["duration"]
+        sr = yaml_content["sr"]
 
     if (Path(PATH_STORE_DATA) / "train").exists() and (Path(PATH_STORE_DATA) / "test").exists() and not OVERWRITE_DATA:
         data_already_generated = True
@@ -88,12 +89,16 @@ def main():
         ecoss_data.filter_by_duration(min_duration=MIN_DURATION, set_classes=CLASSES_FILTER_TIME)
         logging.info(f"\nThe number of signals after filtering by duration is {len(ecoss_data.df)}\n")
         ecoss_data.filter_by_freqlims()
-        ecoss_data.filter_amount(reducible_classes = REDUCIBLE_CLASSES, target_count = [int(item) for item in TARGET_COUNT])
         logging.info(f"\nThe number of signals after filtering by frequency limits is {len(ecoss_data.df)}\n")
+        if MODEL_TYPE.lower() == "vggish":
+            ecoss_data.filter_amount(reducible_classes = REDUCIBLE_CLASSES, target_count = [int(item) for item in TARGET_COUNT])
 
         ecoss_data.generate_insights()
         ecoss_data.split_train_test_balanced(test_size=TEST_SIZE, random_state=27)
-        signals,labels,split_info = ecoss_data.process_all_data()
+        if MODEL_TYPE.lower() == "vggish":
+            signals,labels,split_info = ecoss_data.process_all_data()
+        else:
+            _,_,_ = ecoss_data.process_all_data()  # Avoid loading everything in memory for effat and passt
         data_path = ecoss_data.path_store_data
 
 
