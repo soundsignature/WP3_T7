@@ -488,7 +488,7 @@ def visualize_inference(path_json: str, path_audio: str, path_yaml: str, model: 
         S_dB = librosa.power_to_db(S, ref=np.max)
         
         fig, ax = plt.subplots(figsize=(10, 6))
-        img = librosa.display.specshow(S_dB, sr=yaml_content["sr"], hop_length=yaml_content["hopsize"], x_axis='time', y_axis='mel', ax=ax)
+        img = librosa.display.specshow(S_dB, sr=yaml_content["sr"], hop_length=yaml_content["hopsize"], x_axis='time', y_axis='linear', ax=ax)
         plt.title(os.path.basename(path_audio))
         
         max_time = y.shape[0] / yaml_content["sr"]

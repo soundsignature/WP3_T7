@@ -586,11 +586,14 @@ class EffAtModel():
                                         np.random.choice(os.listdir(path_wavs)))
                 logger.info(f"The file that will be plotted is {wav_to_plot}")
 
-                y, _ = torchaudio.load(wav_to_plot)
+                y, sr = torchaudio.load(wav_to_plot)
                 melspec = self.mel(y)
                 logger.info(f"The shape of the melspec is {melspec.shape}")
+                logger.info(f"The sampling rate is {sr}")
+                logger.info(f"The sampling rate in yaml is {self.yaml['sr']}")
 
                 plt.figure(figsize=(10, 4))
+
                 librosa.display.specshow(melspec.cpu().numpy()[0], x_axis='time', y_axis='linear', sr=self.yaml["sr"], cmap='Greys', hop_length=self.yaml["hopsize"])
                 plt.title(av_class)
                 plt.show()
