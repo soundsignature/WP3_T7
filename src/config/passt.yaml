@@ -23,7 +23,7 @@ norm: 1  # Normalization type for Mel spectrogram
 fmin_aug_range: 10  # Frequency range for augmentation
 fmax_aug_range: 2000  # Maximum frequency range for augmentation
 apply_preemphasis_coefficient: True  # Whether to apply pre-emphasis to the audio
-duration: 1.0  # Duration of the audio clips in seconds
+duration: 3.0  # Duration of the audio clips in seconds
 window: True
 
 # Model Parameters

@@ -6,7 +6,7 @@ freqm: 0
 timem: 0
 n_mels: 128
 win_length: 800
-hopsize: 320
+hopsize: 20
 n_fft: 1024
 fmin: 0.0
 fmax: null
@@ -22,12 +22,12 @@ compile: False # Whether to compile the model
 optimizer: adam
 lr: 0.001
 patience: 4
-batch_size: 64
+batch_size: 4
 n_epochs: 10
 
 #EcossDataset
-sr: 32000
-duration: 3
+sr: 2000
+duration: 10
 window: True
 
 # If we want to test on train set
